@@ -1,11 +1,11 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-export default function VenderPage() {
+export default function RegistrarVentaPage() {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -26,6 +26,18 @@ export default function VenderPage() {
     metodo_pago: 'efectivo' as 'efectivo' | 'digital',
     observaciones: ''
   })
+
+  useEffect(() => {
+    checkAuth()
+  }, [])
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      router.push('/login')
+      return
+    }
+  }
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -221,10 +233,10 @@ export default function VenderPage() {
         }
       }
 
-      alert('✅ Venta registrada correctamente!\n\nPendiente de verificación por el administrador.')
+      alert('✅ Venta registrada correctamente!')
 
-      // Redirigir a mis ventas
-      router.push('/vendedor/mis-ventas')
+      // Redirigir a la página de ventas
+      router.push('/admin/ventas')
     } catch (error: any) {
       console.error('Error registrando venta:', error)
       alert(`Error al registrar la venta: ${error.message}`)
@@ -234,12 +246,12 @@ export default function VenderPage() {
   }
 
   return (
-    <div className="p-4 max-w-2xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2" style={{ color: '#0e0142' }}>
+    <div className="p-8 max-w-4xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2" style={{ color: '#0e0142' }}>
           📸 Registrar Venta
         </h1>
-        <p className="text-sm text-gray-600">
+        <p className="text-gray-600">
           Toma una foto de la factura y completa los datos
         </p>
       </div>
@@ -247,7 +259,7 @@ export default function VenderPage() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Captura de Factura */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h2 className="font-semibold mb-4" style={{ color: '#0e0142' }}>
+          <h2 className="font-semibold mb-4 text-lg" style={{ color: '#0e0142' }}>
             1. Foto de la Factura
           </h2>
 
@@ -264,7 +276,7 @@ export default function VenderPage() {
               />
               <label
                 htmlFor="factura-input"
-                className="flex flex-col items-center justify-center h-48 border-2 border-dashed rounded-xl cursor-pointer transition hover:border-yellow-400"
+                className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-xl cursor-pointer transition hover:border-yellow-400"
                 style={{ borderColor: '#a294da' }}
               >
                 <div className="text-6xl mb-2">📷</div>
@@ -281,7 +293,7 @@ export default function VenderPage() {
               <img
                 src={facturaPreview}
                 alt="Preview"
-                className="w-full h-64 object-cover rounded-xl"
+                className="w-full h-96 object-contain rounded-xl bg-gray-50"
               />
               {(uploadingImage || processingOCR) && (
                 <div className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center">
@@ -301,7 +313,7 @@ export default function VenderPage() {
                   setFacturaUrl(null)
                   if (fileInputRef.current) fileInputRef.current.value = ''
                 }}
-                className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600"
+                className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-red-600 text-xl"
               >
                 ✕
               </button>
@@ -311,7 +323,7 @@ export default function VenderPage() {
 
         {/* Datos de la Venta */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h2 className="font-semibold mb-4" style={{ color: '#0e0142' }}>
+          <h2 className="font-semibold mb-4 text-lg" style={{ color: '#0e0142' }}>
             2. Datos de la Venta
           </h2>
 
@@ -321,7 +333,7 @@ export default function VenderPage() {
             </div>
           )}
 
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: '#0e0142' }}>
                 Número de Factura *
@@ -373,7 +385,6 @@ export default function VenderPage() {
                 value={formData.total}
                 onChange={(e) => setFormData({ ...formData, total: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                style={{ focusRing: '#ffe248' }}
                 placeholder="0.00"
                 required
               />
@@ -401,7 +412,7 @@ export default function VenderPage() {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, metodo_pago: 'efectivo' })}
-                  className={`flex-1 py-3 rounded-lg font-medium transition ${
+                  className={`flex-1 py-2 rounded-lg font-medium transition ${
                     formData.metodo_pago === 'efectivo'
                       ? 'text-white'
                       : 'bg-gray-100 text-gray-700'
@@ -416,7 +427,7 @@ export default function VenderPage() {
                 <button
                   type="button"
                   onClick={() => setFormData({ ...formData, metodo_pago: 'digital' })}
-                  className={`flex-1 py-3 rounded-lg font-medium transition ${
+                  className={`flex-1 py-2 rounded-lg font-medium transition ${
                     formData.metodo_pago === 'digital'
                       ? 'text-white'
                       : 'bg-gray-100 text-gray-700'
@@ -430,19 +441,19 @@ export default function VenderPage() {
                 </button>
               </div>
             </div>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: '#0e0142' }}>
-                Observaciones (opcional)
-              </label>
-              <textarea
-                value={formData.observaciones}
-                onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
-                rows={3}
-                placeholder="Notas adicionales..."
-              />
-            </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-1" style={{ color: '#0e0142' }}>
+              Observaciones (opcional)
+            </label>
+            <textarea
+              value={formData.observaciones}
+              onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
+              rows={3}
+              placeholder="Notas adicionales..."
+            />
           </div>
         </div>
 
@@ -460,7 +471,7 @@ export default function VenderPage() {
       {/* Info */}
       <div className="mt-6 rounded-2xl p-4" style={{ backgroundColor: '#fff9e6', border: '1px solid #ffe248' }}>
         <p className="text-sm" style={{ color: '#5a4a0a' }}>
-          ℹ️ La venta quedará pendiente de verificación por el administrador antes de ser confirmada.
+          ℹ️ Después de registrar la venta, podrás verla en el listado de ventas.
         </p>
       </div>
     </div>

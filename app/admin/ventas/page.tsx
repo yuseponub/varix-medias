@@ -10,6 +10,8 @@ interface Venta {
   fecha: string
   hora: string
   numero_factura?: string
+  nombre_cliente?: string
+  cedula_cliente?: string
   total: number
   cantidad_pares: number
   metodo_pago: string
@@ -22,7 +24,9 @@ export default function VentasPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [ventas, setVentas] = useState<Venta[]>([])
+  const [ventasFiltradas, setVentasFiltradas] = useState<Venta[]>([])
   const [filter, setFilter] = useState<'all' | 'hoy' | 'semana' | 'mes'>('hoy')
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     checkAuth()
@@ -78,6 +82,8 @@ export default function VentasPage() {
         fecha: v.fecha,
         hora: v.hora,
         numero_factura: v.numero_factura,
+        nombre_cliente: v.nombre_cliente,
+        cedula_cliente: v.cedula_cliente,
         total: v.total,
         cantidad_pares: v.cantidad_pares,
         metodo_pago: v.metodo_pago,
@@ -87,6 +93,7 @@ export default function VentasPage() {
       })) || []
 
       setVentas(ventasFormateadas)
+      setVentasFiltradas(ventasFormateadas)
     } catch (error) {
       console.error('Error cargando ventas:', error)
     } finally {
@@ -100,10 +107,42 @@ export default function VentasPage() {
     }
   }
 
-  const totalVentas = ventas.reduce((sum, v) => sum + v.total, 0)
-  const totalPares = ventas.reduce((sum, v) => sum + v.cantidad_pares, 0)
-  const ventasVerificadas = ventas.filter(v => v.verificada).length
-  const ventasPendientes = ventas.filter(v => !v.verificada).length
+  const handleSearch = (term: string) => {
+    setSearchTerm(term)
+
+    if (!term.trim()) {
+      setVentasFiltradas(ventas)
+      return
+    }
+
+    const searchLower = term.toLowerCase().trim()
+
+    const filtered = ventas.filter(venta => {
+      // Buscar en número de factura
+      if (venta.numero_factura?.toLowerCase().includes(searchLower)) return true
+
+      // Buscar en nombre del cliente
+      if (venta.nombre_cliente?.toLowerCase().includes(searchLower)) return true
+
+      // Buscar en cédula del cliente
+      if (venta.cedula_cliente?.includes(searchLower)) return true
+
+      // Buscar en vendedor
+      if (venta.vendedor_nombre?.toLowerCase().includes(searchLower)) return true
+
+      // Buscar en total (convertir a string)
+      if (venta.total.toString().includes(searchLower)) return true
+
+      return false
+    })
+
+    setVentasFiltradas(filtered)
+  }
+
+  const totalVentas = ventasFiltradas.reduce((sum, v) => sum + v.total, 0)
+  const totalPares = ventasFiltradas.reduce((sum, v) => sum + v.cantidad_pares, 0)
+  const ventasVerificadas = ventasFiltradas.filter(v => v.verificada).length
+  const ventasPendientes = ventasFiltradas.filter(v => !v.verificada).length
 
   if (loading) {
     return (
@@ -159,62 +198,99 @@ export default function VentasPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters and Search */}
       <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setFilter('hoy')}
-            className={`px-4 py-2 rounded-lg transition ${
-              filter === 'hoy'
-                ? 'text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-            style={{ backgroundColor: filter === 'hoy' ? '#ffe248' : undefined, color: filter === 'hoy' ? '#0e0142' : undefined }}
-          >
-            Hoy
-          </button>
-          <button
-            onClick={() => setFilter('semana')}
-            className={`px-4 py-2 rounded-lg transition ${
-              filter === 'semana'
-                ? 'text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-            style={{ backgroundColor: filter === 'semana' ? '#ffe248' : undefined, color: filter === 'semana' ? '#0e0142' : undefined }}
-          >
-            Última Semana
-          </button>
-          <button
-            onClick={() => setFilter('mes')}
-            className={`px-4 py-2 rounded-lg transition ${
-              filter === 'mes'
-                ? 'text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-            style={{ backgroundColor: filter === 'mes' ? '#ffe248' : undefined, color: filter === 'mes' ? '#0e0142' : undefined }}
-          >
-            Último Mes
-          </button>
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg transition ${
-              filter === 'all'
-                ? 'text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-            style={{ backgroundColor: filter === 'all' ? '#ffe248' : undefined, color: filter === 'all' ? '#0e0142' : undefined }}
-          >
-            Todas
-          </button>
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setFilter('hoy')}
+              className={`px-4 py-2 rounded-lg transition ${
+                filter === 'hoy'
+                  ? 'text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              style={{ backgroundColor: filter === 'hoy' ? '#ffe248' : undefined, color: filter === 'hoy' ? '#0e0142' : undefined }}
+            >
+              Hoy
+            </button>
+            <button
+              onClick={() => setFilter('semana')}
+              className={`px-4 py-2 rounded-lg transition ${
+                filter === 'semana'
+                  ? 'text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              style={{ backgroundColor: filter === 'semana' ? '#ffe248' : undefined, color: filter === 'semana' ? '#0e0142' : undefined }}
+            >
+              Última Semana
+            </button>
+            <button
+              onClick={() => setFilter('mes')}
+              className={`px-4 py-2 rounded-lg transition ${
+                filter === 'mes'
+                  ? 'text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              style={{ backgroundColor: filter === 'mes' ? '#ffe248' : undefined, color: filter === 'mes' ? '#0e0142' : undefined }}
+            >
+              Último Mes
+            </button>
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-4 py-2 rounded-lg transition ${
+                filter === 'all'
+                  ? 'text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              style={{ backgroundColor: filter === 'all' ? '#ffe248' : undefined, color: filter === 'all' ? '#0e0142' : undefined }}
+            >
+              Todas
+            </button>
+          </div>
+
+          <div className="flex-1 md:max-w-md">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar por factura, cliente, cédula, vendedor..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full px-4 py-2 pl-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 transition"
+                style={{ focusRingColor: '#ffe248' }}
+              />
+              <span className="absolute left-3 top-2.5 text-gray-400 text-lg">
+                🔍
+              </span>
+              {searchTerm && (
+                <button
+                  onClick={() => handleSearch('')}
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Ventas Table */}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        {ventas.length === 0 ? (
+        {ventasFiltradas.length === 0 ? (
           <div className="p-12 text-center">
             <div className="text-6xl mb-4">📊</div>
-            <p className="text-gray-500">No hay ventas registradas en este período</p>
+            <p className="text-gray-500">
+              {searchTerm ? 'No se encontraron ventas con ese criterio de búsqueda' : 'No hay ventas registradas en este período'}
+            </p>
+            {searchTerm && (
+              <button
+                onClick={() => handleSearch('')}
+                className="mt-4 px-4 py-2 rounded-lg transition hover:opacity-80"
+                style={{ backgroundColor: '#ffe248', color: '#0e0142' }}
+              >
+                Limpiar búsqueda
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -229,6 +305,9 @@ export default function VentasPage() {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Vendedor
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Cliente
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Cantidad
@@ -248,7 +327,7 @@ export default function VentasPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {ventas.map((venta) => (
+                {ventasFiltradas.map((venta) => (
                   <tr key={venta.id} className={!venta.verificada ? 'bg-orange-50' : ''}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: '#0e0142' }}>
                       <span className="font-mono font-semibold px-2 py-1 bg-purple-50 rounded" style={{ color: '#6f4ec8' }}>
@@ -263,6 +342,18 @@ export default function VentasPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: '#0e0142' }}>
                       {venta.vendedor_nombre}
+                    </td>
+                    <td className="px-6 py-4 text-sm" style={{ color: '#0e0142' }}>
+                      {venta.nombre_cliente ? (
+                        <div>
+                          <div className="font-medium">{venta.nombre_cliente}</div>
+                          {venta.cedula_cliente && (
+                            <div className="text-xs text-gray-500 font-mono">CC: {venta.cedula_cliente}</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">Sin datos</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: '#0e0142' }}>
                       {venta.cantidad_pares} pares

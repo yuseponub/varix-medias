@@ -8,6 +8,7 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
   const router = useRouter()
   const pathname = usePathname()
   const [userName, setUserName] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     checkAuth()
@@ -27,6 +28,7 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
       return
     }
 
+    setIsAdmin(role === 'admin')
     setUserName(localStorage.getItem('user_name') || 'Vendedor')
   }
 
@@ -48,6 +50,15 @@ export default function VendedorLayout({ children }: { children: React.ReactNode
         <div className="px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              {isAdmin && (
+                <button
+                  onClick={() => router.push('/admin/dashboard')}
+                  className="px-3 py-2 rounded-lg transition hover:opacity-80 text-sm font-medium"
+                  style={{ backgroundColor: '#a294da', color: 'white' }}
+                >
+                  ← Volver al Admin
+                </button>
+              )}
               <div className="text-2xl">🏥</div>
               <div>
                 <h1 className="font-bold" style={{ color: '#ffe248' }}>
