@@ -60,34 +60,36 @@ export async function POST(request: NextRequest) {
 4. Para cédulas: busca "Cédula", "CC", "C.C.", "Identificación", "ID", "NIT", etc. - elimina puntos y comas, solo números
 5. Para totales: busca "Total", "Total a Pagar", "Valor Total", "$", "COP", "Pesos". Si hay descuentos, usa el total final
 6. Para cantidad de pares: busca "Cantidad", "Cant.", "Pares", "Unidades", "Qty". Suma todas las cantidades si hay múltiples líneas
-7. Ten en cuenta que la letra puede ser manuscrita, impresa, o mixta
-8. Si un campo tiene poca legibilidad, haz tu mejor esfuerzo por interpretarlo basándote en el contexto
+7. **REFERENCIAS DE PRODUCTO**: busca códigos de 5 dígitos que empiecen con 7 (ej: 74113, 74114, 75406, 79321). Pueden aparecer como "Ref:", "Código:", "Art:", o simplemente el número
+8. Ten en cuenta que la letra puede ser manuscrita, impresa, o mixta
+9. Si un campo tiene poca legibilidad, haz tu mejor esfuerzo por interpretarlo basándote en el contexto
 
 **EJEMPLOS DE EXTRACCIÓN:**
 
 Ejemplo 1 (factura impresa clara):
-- Texto: "FACTURA: 00123 | CLIENTE: Maria García Lopez | CC: 1.234.567 | TOTAL: $180.000 | PARES: 3"
-- Respuesta: {"numero_factura": "00123", "nombre_cliente": "Maria García Lopez", "cedula_cliente": "1234567", "total": 180000, "cantidad_pares": 3}
+- Texto: "FACTURA: 00123 | REF: 74113 | CLIENTE: Maria García Lopez | CC: 1.234.567 | TOTAL: $180.000 | PARES: 3"
+- Respuesta: {"numero_factura": "00123", "referencia_producto": "74113", "nombre_cliente": "Maria García Lopez", "cedula_cliente": "1234567", "total": 180000, "cantidad_pares": 3}
 
 Ejemplo 2 (factura manuscrita):
-- Texto: "No: 456 / Sra. Ana Martínez / Ced: 98765432 / Total a pagar: 250,000 / Cant: 5 pares"
-- Respuesta: {"numero_factura": "456", "nombre_cliente": "Ana Martínez", "cedula_cliente": "98765432", "total": 250000, "cantidad_pares": 5}
+- Texto: "No: 456 / Artículo 75406 / Sra. Ana Martínez / Ced: 98765432 / Total a pagar: 250,000 / Cant: 5 pares"
+- Respuesta: {"numero_factura": "456", "referencia_producto": "75406", "nombre_cliente": "Ana Martínez", "cedula_cliente": "98765432", "total": 250000, "cantidad_pares": 5}
 
 Ejemplo 3 (información parcial):
-- Texto: "Factura 789 | Total: $95,000"
-- Respuesta: {"numero_factura": "789", "nombre_cliente": null, "cedula_cliente": null, "total": 95000, "cantidad_pares": null}
+- Texto: "Factura 789 | Código: 79321 | Total: $95,000"
+- Respuesta: {"numero_factura": "789", "referencia_producto": "79321", "nombre_cliente": null, "cedula_cliente": null, "total": 95000, "cantidad_pares": null}
 
 **AHORA ANALIZA ESTA FACTURA:**
 
 Extrae la siguiente información de la factura que verás a continuación:
 - numero_factura: string (solo números y letras, sin símbolos ni espacios)
+- referencia_producto: string (código de 5 dígitos que empiece con 7, ej: 74113, 75406, 79321)
 - nombre_cliente: string (nombre completo del cliente)
 - cedula_cliente: string (solo números, sin puntos ni comas)
 - total: number (valor numérico sin símbolos de moneda ni separadores)
 - cantidad_pares: number (cantidad total de pares vendidos)
 
 Responde ÚNICAMENTE con un objeto JSON válido en este formato exacto, sin texto adicional antes ni después:
-{"numero_factura": "...", "nombre_cliente": "...", "cedula_cliente": "...", "total": 123456, "cantidad_pares": 5}
+{"numero_factura": "...", "referencia_producto": "...", "nombre_cliente": "...", "cedula_cliente": "...", "total": 123456, "cantidad_pares": 5}
 
 Si no encuentras algún valor, usa null. Usa números para total y cantidad_pares, strings para los demás campos.`
               },

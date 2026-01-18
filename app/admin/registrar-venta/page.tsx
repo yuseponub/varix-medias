@@ -19,6 +19,7 @@ export default function RegistrarVentaPage() {
 
   const [formData, setFormData] = useState({
     numero_factura: '',
+    referencia_producto: '',
     nombre_cliente: '',
     cedula_cliente: '',
     total: '',
@@ -26,9 +27,11 @@ export default function RegistrarVentaPage() {
     metodo_pago: 'efectivo' as 'efectivo' | 'digital',
     observaciones: ''
   })
+  const [productos, setProductos] = useState<any[]>([])
 
   useEffect(() => {
     checkAuth()
+    loadProductos()
   }, [])
 
   const checkAuth = async () => {
@@ -36,6 +39,20 @@ export default function RegistrarVentaPage() {
     if (!session) {
       router.push('/login')
       return
+    }
+  }
+
+  const loadProductos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('productos')
+        .select('*')
+        .order('codigo')
+
+      if (error) throw error
+      setProductos(data || [])
+    } catch (error) {
+      console.error('Error cargando productos:', error)
     }
   }
 
@@ -124,6 +141,10 @@ export default function RegistrarVentaPage() {
         setFormData(prev => ({ ...prev, numero_factura: data.numero_factura }))
         console.log('📝 Número de factura extraído:', data.numero_factura)
       }
+      if (data.referencia_producto) {
+        setFormData(prev => ({ ...prev, referencia_producto: data.referencia_producto }))
+        console.log('📝 Referencia producto extraída:', data.referencia_producto)
+      }
       if (data.nombre_cliente) {
         setFormData(prev => ({ ...prev, nombre_cliente: data.nombre_cliente }))
         console.log('📝 Nombre cliente extraído:', data.nombre_cliente)
@@ -141,7 +162,7 @@ export default function RegistrarVentaPage() {
         console.log('📝 Cantidad extraída:', data.cantidad_pares)
       }
 
-      if (!data.total && !data.cantidad_pares && !data.numero_factura) {
+      if (!data.total && !data.cantidad_pares && !data.numero_factura && !data.referencia_producto) {
         console.warn('⚠️ OCR no pudo extraer datos. Llena manualmente.')
       }
     } catch (error) {
@@ -162,6 +183,11 @@ export default function RegistrarVentaPage() {
 
     if (!formData.numero_factura || !formData.nombre_cliente || !formData.total || !formData.cantidad_pares) {
       alert('Completa todos los campos requeridos (*)')
+      return
+    }
+
+    if (!formData.referencia_producto) {
+      alert('Debes ingresar la referencia del producto')
       return
     }
 
@@ -188,6 +214,30 @@ export default function RegistrarVentaPage() {
         return
       }
 
+      // Buscar producto por referencia
+      const { data: producto, error: productoError } = await supabase
+        .from('productos')
+        .select('*')
+        .eq('codigo', formData.referencia_producto)
+        .single()
+
+      if (productoError || !producto) {
+        alert(`Producto con referencia ${formData.referencia_producto} no encontrado en el inventario`)
+        return
+      }
+
+      // Verificar stock disponible
+      if (producto.stock_normal < parseInt(formData.cantidad_pares)) {
+        const confirmar = confirm(
+          `⚠️ ADVERTENCIA: Stock insuficiente\n\n` +
+          `Producto: ${producto.tipo} ${producto.talla} (${producto.codigo})\n` +
+          `Stock actual: ${producto.stock_normal} pares\n` +
+          `Cantidad solicitada: ${formData.cantidad_pares} pares\n\n` +
+          `¿Deseas continuar de todos modos?`
+        )
+        if (!confirmar) return
+      }
+
       const now = new Date()
       const fecha = now.toISOString().split('T')[0]
       const hora = now.toTimeString().split(' ')[0]
@@ -199,6 +249,8 @@ export default function RegistrarVentaPage() {
           fecha,
           hora,
           vendedor_id: usuario.id,
+          producto_id: producto.id,
+          referencia_producto: formData.referencia_producto,
           numero_factura: formData.numero_factura || null,
           nombre_cliente: formData.nombre_cliente || null,
           cedula_cliente: formData.cedula_cliente || null,
@@ -213,6 +265,18 @@ export default function RegistrarVentaPage() {
         .single()
 
       if (ventaError) throw ventaError
+
+      // Actualizar stock del producto
+      const nuevoStock = producto.stock_normal - parseInt(formData.cantidad_pares)
+      const { error: stockError } = await supabase
+        .from('productos')
+        .update({ stock_normal: nuevoStock })
+        .eq('id', producto.id)
+
+      if (stockError) {
+        console.error('Error actualizando stock:', stockError)
+        // No bloqueamos la venta si falla la actualización del stock
+      }
 
       // Si es efectivo, actualizar caja
       if (formData.metodo_pago === 'efectivo') {
@@ -346,6 +410,25 @@ export default function RegistrarVentaPage() {
                 placeholder="12345"
                 required
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1" style={{ color: '#0e0142' }}>
+                Referencia del Producto *
+              </label>
+              <select
+                value={formData.referencia_producto}
+                onChange={(e) => setFormData({ ...formData, referencia_producto: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2"
+                required
+              >
+                <option value="">Selecciona una referencia</option>
+                {productos.map(p => (
+                  <option key={p.id} value={p.codigo}>
+                    {p.codigo} - {p.tipo} {p.talla} (Stock: {p.stock_normal})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
