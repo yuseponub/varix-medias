@@ -37,12 +37,6 @@ export default function InventarioPage() {
       router.push('/login')
       return
     }
-
-    const role = localStorage.getItem('user_role')
-    if (role !== 'admin') {
-      router.push('/vendedor/vender')
-      return
-    }
   }
 
   const loadProductos = async () => {
