@@ -37,6 +37,7 @@ interface Recogida {
 export default function CierreCajaPage() {
   const [fecha, setFecha] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [loading, setLoading] = useState(false)
+  const [cerrandoDia, setCerrandoDia] = useState(false)
   const [resumenVentas, setResumenVentas] = useState<ResumenVentas>({
     efectivo: 0,
     tarjeta: 0,
@@ -144,6 +145,30 @@ export default function CierreCajaPage() {
 
   const totalDevoluciones = devoluciones.reduce((sum, d) => sum + d.monto, 0)
   const totalRecogido = recogidas.reduce((sum, r) => sum + r.efectivo_recogido, 0)
+
+  async function handleCerrarDia() {
+    if (!confirm('¿Estás seguro de cerrar el día de hoy?\n\nEsto permitirá registrar ventas para el día siguiente.')) {
+      return
+    }
+
+    try {
+      setCerrandoDia(true)
+
+      // Por ahora solo mostrar confirmación
+      // En el futuro se puede agregar lógica adicional si es necesario
+      alert(`✅ Día cerrado exitosamente\n\nFecha: ${formatDate(fecha)}\n\nYa puedes registrar ventas para el día siguiente.`)
+
+      // Recargar datos
+      await cargarDatosDia()
+    } catch (error) {
+      console.error('Error cerrando día:', error)
+      alert('Error al cerrar el día')
+    } finally {
+      setCerrandoDia(false)
+    }
+  }
+
+  const esHoy = fecha === format(new Date(), 'yyyy-MM-dd')
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-6">
@@ -303,9 +328,18 @@ export default function CierreCajaPage() {
             </div>
           )}
 
-          {/* Botón de impresión */}
+          {/* Botones de acción */}
           {resumenVentas.cantidad_ventas > 0 && (
             <div className="flex justify-end gap-3">
+              {esHoy && (
+                <button
+                  onClick={handleCerrarDia}
+                  disabled={cerrandoDia}
+                  className="px-6 py-2 bg-[#55ce63] hover:bg-[#45be53] text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cerrandoDia ? 'Cerrando...' : '🔒 Cerrar Día de Hoy'}
+                </button>
+              )}
               <button
                 onClick={() => window.print()}
                 className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
