@@ -26,10 +26,13 @@ export default function LoginPage() {
 
       if (authError) throw authError
 
-      // Obtener datos del usuario
+      // Obtener datos del usuario con permisos
       const { data: usuario, error: usuarioError } = await supabase
         .from('usuarios')
-        .select('*')
+        .select(`
+          *,
+          permisos_usuario (*)
+        `)
         .eq('auth_id', authData.user.id)
         .single()
 
@@ -41,15 +44,30 @@ export default function LoginPage() {
         throw new Error(`Usuario no encontrado en el sistema. Auth ID: ${authData.user.id}`)
       }
 
-      // Guardar rol en localStorage
+      // Extraer permisos
+      const permisos = usuario.permisos_usuario?.[0]
+
+      // Guardar datos en localStorage
       localStorage.setItem('user_role', usuario.rol)
       localStorage.setItem('user_name', usuario.nombre)
       localStorage.setItem('user_id', usuario.id)
 
-      // Redirigir según rol
+      // Redirigir según rol y permisos
+      // Si es admin, siempre va al dashboard de admin
       if (usuario.rol === 'admin') {
         router.push('/admin/dashboard')
-      } else {
+      }
+      // Si es vendedor pero tiene permisos de ver dashboard, compras, historial o gestionar usuarios, va a admin
+      else if (permisos && (
+        permisos.puede_ver_dashboard === true ||
+        permisos.puede_ver_compras === true ||
+        permisos.puede_ver_historial === true ||
+        permisos.puede_gestionar_usuarios === true
+      )) {
+        router.push('/admin/dashboard')
+      }
+      // Vendedor normal va a su panel de ventas
+      else {
         router.push('/vendedor/vender')
       }
     } catch (err: any) {
