@@ -118,6 +118,13 @@ export default function VentasPage() {
     }
   }
 
+  const formatFechaLocal = (fechaStr: string) => {
+    // Parsear fecha YYYY-MM-DD sin convertir a UTC
+    const [year, month, day] = fechaStr.split('-').map(Number)
+    const fecha = new Date(year, month - 1, day) // Crear fecha local directamente
+    return fecha.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+
   const handleSearch = (term: string) => {
     setSearchTerm(term)
 
@@ -347,7 +354,7 @@ export default function VentasPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ color: '#0e0142' }}>
                       <div>
-                        <div className="font-medium">{new Date(venta.fecha).toLocaleDateString('es-CO')}</div>
+                        <div className="font-medium">{formatFechaLocal(venta.fecha)}</div>
                         <div className="text-gray-500">{venta.hora}</div>
                       </div>
                     </td>
