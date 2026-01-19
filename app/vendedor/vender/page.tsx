@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { getFechaActual, getHoraActual } from '@/lib/utils/dates'
 
 export default function VenderPage() {
   const router = useRouter()
@@ -229,9 +230,8 @@ export default function VenderPage() {
         if (!confirmar) return
       }
 
-      const now = new Date()
-      const fecha = now.toISOString().split('T')[0]
-      const hora = now.toTimeString().split(' ')[0]
+      const fecha = getFechaActual()
+      const hora = getHoraActual()
 
       // Insertar venta
       const { data: venta, error: ventaError } = await supabase

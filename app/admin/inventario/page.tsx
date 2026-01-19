@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { getFechaActual } from '@/lib/utils/dates'
 
 interface Producto {
   id: string
@@ -115,7 +116,7 @@ export default function InventarioPage() {
       // Registrar movimiento (opcional, no afecta la actualización del stock)
       try {
         await supabase.from('movimientos_inventario').insert({
-          fecha: new Date().toISOString().split('T')[0],
+          fecha: getFechaActual(),
           hora: new Date().toTimeString().split(' ')[0],
           producto_id: productoId,
           tipo: 'ajuste',
@@ -159,7 +160,7 @@ export default function InventarioPage() {
       // Registrar movimiento
       const userId = localStorage.getItem('user_id')
       await supabase.from('movimientos_inventario').insert({
-        fecha: new Date().toISOString().split('T')[0],
+        fecha: getFechaActual(),
         hora: new Date().toTimeString().split(' ')[0],
         producto_id: productoId,
         tipo: 'devolucion',
