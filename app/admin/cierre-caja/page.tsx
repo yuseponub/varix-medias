@@ -199,10 +199,15 @@ export default function CierreCajaPage() {
   const hoy = getFechaActual()
   const esHoy = fecha === hoy
 
-  // Calcular cuántos días de diferencia hay
-  const fechaSeleccionada = new Date(fecha + 'T00:00:00')
-  const fechaHoy = new Date(hoy + 'T00:00:00')
+  // Calcular cuántos días de diferencia hay (usando objetos Date locales)
+  const [yearSel, monthSel, daySel] = fecha.split('-').map(Number)
+  const [yearHoy, monthHoy, dayHoy] = hoy.split('-').map(Number)
+
+  const fechaSeleccionada = new Date(yearSel, monthSel - 1, daySel)
+  const fechaHoy = new Date(yearHoy, monthHoy - 1, dayHoy)
   const diferenciaDias = Math.floor((fechaHoy.getTime() - fechaSeleccionada.getTime()) / (1000 * 60 * 60 * 24))
+
+  console.log('DEBUG Cierre:', { fecha, hoy, esHoy, diferenciaDias })
 
   // Determinar el texto del botón según cuántos días de diferencia hay
   const getTextoCierre = () => {
