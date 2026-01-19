@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { getFechaActual } from '@/lib/utils/dates'
 
 interface Venta {
   id: string
@@ -60,17 +61,27 @@ export default function VentasPage() {
         .order('hora', { ascending: false })
 
       // Aplicar filtros de fecha
-      const hoy = new Date().toISOString().split('T')[0]
+      const hoy = getFechaActual()
       if (filter === 'hoy') {
         query = query.eq('fecha', hoy)
       } else if (filter === 'semana') {
-        const semanaAtras = new Date()
-        semanaAtras.setDate(semanaAtras.getDate() - 7)
-        query = query.gte('fecha', semanaAtras.toISOString().split('T')[0])
+        // Calcular fecha de hace 7 días en zona horaria Colombia
+        const fechaActual = new Date()
+        const colombiaOffset = -5 * 60
+        const localOffset = fechaActual.getTimezoneOffset()
+        const colombiaTime = new Date(fechaActual.getTime() + (colombiaOffset - localOffset) * 60 * 1000)
+        colombiaTime.setDate(colombiaTime.getDate() - 7)
+        const semanaAtras = `${colombiaTime.getFullYear()}-${String(colombiaTime.getMonth() + 1).padStart(2, '0')}-${String(colombiaTime.getDate()).padStart(2, '0')}`
+        query = query.gte('fecha', semanaAtras)
       } else if (filter === 'mes') {
-        const mesAtras = new Date()
-        mesAtras.setMonth(mesAtras.getMonth() - 1)
-        query = query.gte('fecha', mesAtras.toISOString().split('T')[0])
+        // Calcular fecha de hace 1 mes en zona horaria Colombia
+        const fechaActual = new Date()
+        const colombiaOffset = -5 * 60
+        const localOffset = fechaActual.getTimezoneOffset()
+        const colombiaTime = new Date(fechaActual.getTime() + (colombiaOffset - localOffset) * 60 * 1000)
+        colombiaTime.setMonth(colombiaTime.getMonth() - 1)
+        const mesAtras = `${colombiaTime.getFullYear()}-${String(colombiaTime.getMonth() + 1).padStart(2, '0')}-${String(colombiaTime.getDate()).padStart(2, '0')}`
+        query = query.gte('fecha', mesAtras)
       }
 
       const { data, error } = await query

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { getFechaActual } from '@/lib/utils/dates'
 
 interface ResumenVentas {
   efectivo: number
@@ -35,7 +36,7 @@ interface Recogida {
 }
 
 export default function CierreCajaPage() {
-  const [fecha, setFecha] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [fecha, setFecha] = useState(getFechaActual())
   const [loading, setLoading] = useState(false)
   const [cerrandoDia, setCerrandoDia] = useState(false)
   const [resumenVentas, setResumenVentas] = useState<ResumenVentas>({
@@ -168,7 +169,7 @@ export default function CierreCajaPage() {
     }
   }
 
-  const esHoy = fecha === format(new Date(), 'yyyy-MM-dd')
+  const esHoy = fecha === getFechaActual()
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-6">

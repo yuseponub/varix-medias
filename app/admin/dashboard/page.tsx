@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { getFechaActual } from '@/lib/utils/dates'
 
 export default function AdminDashboard() {
   const router = useRouter()
@@ -28,7 +29,7 @@ export default function AdminDashboard() {
         .eq('id', 1)
         .single() as { data: { saldo_actual: number } | null }
 
-      const hoy = new Date().toISOString().split('T')[0]
+      const hoy = getFechaActual()
       const { data: ventas } = await supabase
         .from('ventas')
         .select('total')
