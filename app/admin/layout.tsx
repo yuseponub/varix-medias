@@ -43,7 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { icon: '📝', label: 'Registrar Venta', href: '/admin/registrar-venta' },
     { icon: '🔄', label: 'Devoluciones', href: '/admin/devoluciones' },
     { icon: '🛒', label: 'Compras', href: '/admin/compras' },
-    { icon: '💵', label: 'Recogida Efectivo', href: '/admin/efectivo' },
+    { icon: '💵', label: 'Recogida Efectivo', href: '/admin/recogidas-efectivo' },
     { icon: '📈', label: 'Reportes', href: '/admin/reportes' },
   ]
 
