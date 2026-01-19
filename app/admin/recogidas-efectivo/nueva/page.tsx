@@ -352,8 +352,15 @@ export default function NuevaRecogidaPage() {
   }
 
   function formatDate(dateStr: string) {
-    if (!dateStr || dateStr === '2000-01-01') return 'Inicio'
-    return new Date(dateStr).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+    if (!dateStr) return 'Sin fecha'
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
+
+  function formatDateShort(dateStr: string) {
+    if (!dateStr) return 'Sin fecha'
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
   const diferenciaEfectivo = formDataEfectivo.efectivo_recogido
@@ -454,7 +461,7 @@ export default function NuevaRecogidaPage() {
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <p className="text-sm font-medium text-green-900">Período de acumulación</p>
             <p className="text-lg font-bold text-green-700 mt-1">
-              {formatDate(fechaDesdeEfectivo)} → Hoy
+              {formatDateShort(fechaDesdeEfectivo)} → {formatDateShort(format(new Date(), 'yyyy-MM-dd'))}
             </p>
           </div>
 
@@ -578,7 +585,7 @@ export default function NuevaRecogidaPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm font-medium text-blue-900">Período de acumulación</p>
             <p className="text-lg font-bold text-blue-700 mt-1">
-              {formatDate(fechaDesdeTarjeta)} → Hoy
+              {formatDateShort(fechaDesdeTarjeta)} → {formatDateShort(format(new Date(), 'yyyy-MM-dd'))}
             </p>
             <p className="text-2xl font-bold text-blue-900 mt-3">
               {formatCurrency(tarjetaAcumulada)}
@@ -644,7 +651,7 @@ export default function NuevaRecogidaPage() {
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
             <p className="text-sm font-medium text-purple-900">Período de acumulación</p>
             <p className="text-lg font-bold text-purple-700 mt-1">
-              {formatDate(fechaDesdeTransferencia)} → Hoy
+              {formatDateShort(fechaDesdeTransferencia)} → {formatDateShort(format(new Date(), 'yyyy-MM-dd'))}
             </p>
             <p className="text-2xl font-bold text-purple-900 mt-3">
               {formatCurrency(transferenciaAcumulada)}
