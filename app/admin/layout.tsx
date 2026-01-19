@@ -38,14 +38,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const menuItems = [
     { icon: '📊', label: 'Dashboard', href: '/admin/dashboard' },
-    { icon: '📦', label: 'Inventario', href: '/admin/inventario' },
     { icon: '💰', label: 'Ventas', href: '/admin/ventas' },
-    { icon: '📝', label: 'Registrar Venta', href: '/admin/registrar-venta' },
-    { icon: '🔄', label: 'Devoluciones', href: '/admin/devoluciones' },
     { icon: '🛒', label: 'Compras', href: '/admin/compras' },
-    { icon: '💵', label: 'Recogida Efectivo', href: '/admin/recogidas-efectivo' },
-    { icon: '🔐', label: 'Cierre de Caja', href: '/admin/cierre-caja' },
-    { icon: '📈', label: 'Reportes', href: '/admin/reportes' },
+    { icon: '📦', label: 'Inventario', href: '/admin/inventario' },
+    { icon: '📜', label: 'Historial', href: '/admin/historial' },
+    { icon: '👥', label: 'Usuarios', href: '/admin/usuarios' },
   ]
 
   return (
@@ -90,7 +87,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <button
                 key={item.href}
                 onClick={() => router.push(item.href)}
-                className={`w-full flex items-center gap-3 px-4 py-3 transition-all ${
+                className={`w-full flex items-center gap-2 px-3 py-2 transition-all ${
                   isActive
                     ? 'border-l-4'
                     : 'border-l-4 border-transparent hover:bg-purple-900'
@@ -102,9 +99,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 }}
                 title={!sidebarOpen ? item.label : undefined}
               >
-                <span className="text-xl">{item.icon}</span>
+                <span className="text-lg">{item.icon}</span>
                 {sidebarOpen && (
-                  <span className="font-medium">{item.label}</span>
+                  <span className="text-sm font-medium">{item.label}</span>
                 )}
               </button>
             )

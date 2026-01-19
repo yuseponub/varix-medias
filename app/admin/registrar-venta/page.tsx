@@ -18,6 +18,10 @@ export default function RegistrarVentaPage() {
   const [facturaPreview, setFacturaPreview] = useState<string | null>(null)
   const [facturaUrl, setFacturaUrl] = useState<string | null>(null)
 
+  const [comprobanteFile, setComprobanteFile] = useState<File | null>(null)
+  const [comprobantePreview, setComprobantePreview] = useState<string | null>(null)
+  const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null)
+
   const [formData, setFormData] = useState({
     numero_factura: '',
     referencia_producto: '',
@@ -57,7 +61,7 @@ export default function RegistrarVentaPage() {
     }
   }
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, tipo: 'factura' | 'comprobante') => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -73,17 +77,31 @@ export default function RegistrarVentaPage() {
       return
     }
 
-    setFacturaFile(file)
+    if (tipo === 'factura') {
+      setFacturaFile(file)
 
-    // Crear preview
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setFacturaPreview(e.target?.result as string)
+      // Crear preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setFacturaPreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+
+      // Subir a Supabase Storage
+      await uploadFactura(file)
+    } else {
+      setComprobanteFile(file)
+
+      // Crear preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setComprobantePreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+
+      // Subir a Supabase Storage
+      await uploadComprobante(file)
     }
-    reader.readAsDataURL(file)
-
-    // Subir a Supabase Storage
-    await uploadFactura(file)
   }
 
   const uploadFactura = async (file: File) => {
@@ -112,6 +130,34 @@ export default function RegistrarVentaPage() {
     } catch (error) {
       console.error('Error subiendo factura:', error)
       alert('Error al subir la imagen. Intenta nuevamente.')
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const uploadComprobante = async (file: File) => {
+    try {
+      setUploadingImage(true)
+
+      const fileName = `comprobante_${Date.now()}_${file.name}`
+      const { data, error } = await supabase.storage
+        .from('facturas')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (error) throw error
+
+      // Obtener URL pública
+      const { data: urlData } = supabase.storage
+        .from('facturas')
+        .getPublicUrl(data.path)
+
+      setComprobanteUrl(urlData.publicUrl)
+    } catch (error) {
+      console.error('Error subiendo comprobante:', error)
+      alert('Error al subir el comprobante. Intenta nuevamente.')
     } finally {
       setUploadingImage(false)
     }
@@ -179,6 +225,11 @@ export default function RegistrarVentaPage() {
 
     if (!facturaUrl) {
       alert('Debes subir una foto de la factura')
+      return
+    }
+
+    if (formData.metodo_pago === 'digital' && !comprobanteUrl) {
+      alert('Debes subir una foto del comprobante de pago digital')
       return
     }
 
@@ -258,6 +309,7 @@ export default function RegistrarVentaPage() {
           cantidad_pares: parseInt(formData.cantidad_pares),
           metodo_pago: formData.metodo_pago,
           factura_url: facturaUrl,
+          comprobante_url: comprobanteUrl || null,
           verificada: false,
           observaciones: formData.observaciones || null
         })
@@ -312,6 +364,14 @@ export default function RegistrarVentaPage() {
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <div className="mb-8">
+        <button
+          onClick={() => router.push('/admin/ventas')}
+          className="mb-4 px-4 py-2 rounded-lg font-medium transition hover:opacity-80 flex items-center gap-2"
+          style={{ backgroundColor: '#f3f1fa', color: '#6f4ec8' }}
+        >
+          ← Regresar a Ventas
+        </button>
+
         <h1 className="text-3xl font-bold mb-2" style={{ color: '#0e0142' }}>
           📸 Registrar Venta
         </h1>
@@ -321,6 +381,45 @@ export default function RegistrarVentaPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Selección de Método de Pago */}
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+          <h2 className="font-semibold mb-4 text-lg" style={{ color: '#0e0142' }}>
+            Método de Pago *
+          </h2>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, metodo_pago: 'efectivo' })}
+              className={`flex-1 py-4 rounded-xl font-bold text-lg transition ${
+                formData.metodo_pago === 'efectivo'
+                  ? 'shadow-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              style={{
+                backgroundColor: formData.metodo_pago === 'efectivo' ? '#ffe248' : undefined,
+                color: formData.metodo_pago === 'efectivo' ? '#0e0142' : undefined
+              }}
+            >
+              💵 Efectivo
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, metodo_pago: 'digital' })}
+              className={`flex-1 py-4 rounded-xl font-bold text-lg transition ${
+                formData.metodo_pago === 'digital'
+                  ? 'shadow-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              style={{
+                backgroundColor: formData.metodo_pago === 'digital' ? '#a294da' : undefined,
+                color: formData.metodo_pago === 'digital' ? 'white' : undefined
+              }}
+            >
+              💳 Digital (Tarjeta/Transferencia)
+            </button>
+          </div>
+        </div>
+
         {/* Captura de Factura */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <h2 className="font-semibold mb-4 text-lg" style={{ color: '#0e0142' }}>
@@ -334,7 +433,7 @@ export default function RegistrarVentaPage() {
                 type="file"
                 accept="image/*"
                 capture="environment"
-                onChange={handleFileSelect}
+                onChange={(e) => handleFileSelect(e, 'factura')}
                 className="hidden"
                 id="factura-input"
               />
@@ -385,10 +484,72 @@ export default function RegistrarVentaPage() {
           )}
         </div>
 
+        {/* Captura de Comprobante (solo si es pago digital) */}
+        {formData.metodo_pago === 'digital' && (
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <h2 className="font-semibold mb-4 text-lg" style={{ color: '#0e0142' }}>
+              2. Foto del Comprobante de Pago
+            </h2>
+
+            {!comprobantePreview ? (
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(e) => handleFileSelect(e, 'comprobante')}
+                  className="hidden"
+                  id="comprobante-input"
+                />
+                <label
+                  htmlFor="comprobante-input"
+                  className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-xl cursor-pointer transition hover:border-purple-400"
+                  style={{ borderColor: '#a294da' }}
+                >
+                  <div className="text-6xl mb-2">📱</div>
+                  <p className="text-sm font-medium" style={{ color: '#0e0142' }}>
+                    Tomar foto del comprobante
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Redeban, Transferencia Bancaria, etc.
+                  </p>
+                </label>
+              </div>
+            ) : (
+              <div className="relative">
+                <img
+                  src={comprobantePreview}
+                  alt="Comprobante"
+                  className="w-full h-96 object-contain rounded-xl bg-gray-50"
+                />
+                {uploadingImage && (
+                  <div className="absolute inset-0 bg-black bg-opacity-50 rounded-xl flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-2"></div>
+                      <p className="text-sm">Subiendo comprobante...</p>
+                    </div>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setComprobanteFile(null)
+                    setComprobantePreview(null)
+                    setComprobanteUrl(null)
+                  }}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-red-600 text-xl"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Datos de la Venta */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
           <h2 className="font-semibold mb-4 text-lg" style={{ color: '#0e0142' }}>
-            2. Datos de la Venta
+            {formData.metodo_pago === 'digital' ? '3' : '2'}. Datos de la Venta
           </h2>
 
           {processingOCR && (
@@ -487,43 +648,6 @@ export default function RegistrarVentaPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: '#0e0142' }}>
-                Método de Pago *
-              </label>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, metodo_pago: 'efectivo' })}
-                  className={`flex-1 py-2 rounded-lg font-medium transition ${
-                    formData.metodo_pago === 'efectivo'
-                      ? 'text-white'
-                      : 'bg-gray-100 text-gray-700'
-                  }`}
-                  style={{
-                    backgroundColor: formData.metodo_pago === 'efectivo' ? '#ffe248' : undefined,
-                    color: formData.metodo_pago === 'efectivo' ? '#0e0142' : undefined
-                  }}
-                >
-                  💵 Efectivo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, metodo_pago: 'digital' })}
-                  className={`flex-1 py-2 rounded-lg font-medium transition ${
-                    formData.metodo_pago === 'digital'
-                      ? 'text-white'
-                      : 'bg-gray-100 text-gray-700'
-                  }`}
-                  style={{
-                    backgroundColor: formData.metodo_pago === 'digital' ? '#a294da' : undefined,
-                    color: formData.metodo_pago === 'digital' ? 'white' : undefined
-                  }}
-                >
-                  💳 Digital
-                </button>
-              </div>
-            </div>
           </div>
 
           <div className="mt-4">
@@ -543,7 +667,7 @@ export default function RegistrarVentaPage() {
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={loading || uploadingImage || processingOCR || !facturaUrl}
+          disabled={loading || uploadingImage || processingOCR || !facturaUrl || (formData.metodo_pago === 'digital' && !comprobanteUrl)}
           className="w-full py-4 rounded-xl font-bold text-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ backgroundColor: '#ffe248', color: '#0e0142' }}
         >

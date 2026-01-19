@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -25,6 +26,7 @@ interface RecogidaEfectivo {
 }
 
 export default function RecogidasEfectivoPage() {
+  const router = useRouter()
   const [recogidas, setRecogidas] = useState<RecogidaEfectivo[]>([])
   const [loading, setLoading] = useState(true)
   const [cajaActual, setCajaActual] = useState<number>(0)
@@ -92,7 +94,15 @@ export default function RecogidasEfectivoPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6">
+      <button
+        onClick={() => router.push('/admin/ventas')}
+        className="mb-4 px-4 py-2 rounded-lg font-medium transition hover:opacity-80 flex items-center gap-2"
+        style={{ backgroundColor: '#f3f1fa', color: '#6f4ec8' }}
+      >
+        ← Regresar a Ventas
+      </button>
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

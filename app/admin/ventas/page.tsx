@@ -28,9 +28,11 @@ export default function VentasPage() {
   const [ventasFiltradas, setVentasFiltradas] = useState<Venta[]>([])
   const [filter, setFilter] = useState<'all' | 'hoy' | 'semana' | 'mes'>('hoy')
   const [searchTerm, setSearchTerm] = useState('')
+  const [necesitaCierreCaja, setNecesitaCierreCaja] = useState(false)
 
   useEffect(() => {
     checkAuth()
+    verificarCierreCaja()
     loadVentas()
   }, [filter])
 
@@ -45,6 +47,51 @@ export default function VentasPage() {
     if (role !== 'admin') {
       router.push('/vendedor/vender')
       return
+    }
+  }
+
+  const verificarCierreCaja = async () => {
+    try {
+      // Obtener la fecha de hoy
+      const hoy = getFechaActual()
+
+      // Calcular fecha de ayer
+      const fechaActual = new Date()
+      const colombiaOffset = -5 * 60
+      const localOffset = fechaActual.getTimezoneOffset()
+      const colombiaTime = new Date(fechaActual.getTime() + (colombiaOffset - localOffset) * 60 * 1000)
+      colombiaTime.setDate(colombiaTime.getDate() - 1)
+      const ayer = `${colombiaTime.getFullYear()}-${String(colombiaTime.getMonth() + 1).padStart(2, '0')}-${String(colombiaTime.getDate()).padStart(2, '0')}`
+
+      // Verificar si hay ventas de ayer
+      const { data: ventasAyer } = await supabase
+        .from('ventas')
+        .select('id')
+        .eq('fecha', ayer)
+        .limit(1)
+
+      if (!ventasAyer || ventasAyer.length === 0) {
+        // No hay ventas de ayer, no se requiere cierre
+        setNecesitaCierreCaja(false)
+        return
+      }
+
+      // Hay ventas de ayer, verificar si se cerró el día
+      const { data: cierreAyer } = await supabase
+        .from('cierres_diarios')
+        .select('id')
+        .eq('fecha', ayer)
+        .limit(1)
+
+      if (!cierreAyer || cierreAyer.length === 0) {
+        // Hay ventas de ayer pero no se cerró el día
+        setNecesitaCierreCaja(true)
+      } else {
+        setNecesitaCierreCaja(false)
+      }
+    } catch (error) {
+      console.error('Error verificando cierre de caja:', error)
+      setNecesitaCierreCaja(false)
     }
   }
 
@@ -176,14 +223,79 @@ export default function VentasPage() {
   return (
     <div className="p-8">
       {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2" style={{ color: '#0e0142' }}>
-          💰 Ventas
-        </h1>
-        <p className="text-gray-600">
-          Historial y gestión de ventas
-        </p>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: '#0e0142' }}>
+            💰 Ventas
+          </h1>
+          <p className="text-gray-600">
+            Historial y gestión de ventas
+          </p>
+        </div>
+
+        {/* Botones de Acción */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => router.push('/admin/registrar-venta')}
+            disabled={necesitaCierreCaja}
+            className="px-6 py-3 rounded-lg font-bold transition hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: '#ffe248', color: '#0e0142' }}
+            title={necesitaCierreCaja ? 'Debe cerrar el día anterior antes de registrar nuevas ventas' : ''}
+          >
+            ➕ Registrar Venta
+          </button>
+
+          <button
+            onClick={() => router.push('/admin/devoluciones')}
+            className="px-6 py-3 rounded-lg font-bold transition hover:opacity-90 shadow-lg"
+            style={{ backgroundColor: '#f97316', color: 'white' }}
+          >
+            🔄 Devoluciones
+          </button>
+
+          <button
+            onClick={() => router.push('/admin/recogidas-efectivo')}
+            disabled={necesitaCierreCaja}
+            className="px-6 py-3 rounded-lg font-bold transition hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: '#a294da', color: 'white' }}
+            title={necesitaCierreCaja ? 'Debe cerrar el día anterior antes de recoger efectivo' : ''}
+          >
+            💵 Recoger Efectivo
+          </button>
+
+          <button
+            onClick={() => router.push('/admin/cierre-caja')}
+            className="px-6 py-3 rounded-lg font-bold transition hover:opacity-90 shadow-lg"
+            style={{ backgroundColor: '#0e0142', color: '#ffe248' }}
+          >
+            🔒 Cierre de Caja
+          </button>
+        </div>
       </div>
+
+      {/* Alerta de Cierre de Caja Pendiente */}
+      {necesitaCierreCaja && (
+        <div className="mb-6 bg-red-50 border-2 border-red-500 rounded-2xl p-6">
+          <div className="flex items-start gap-4">
+            <span className="text-4xl">⚠️</span>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-red-900 mb-2">
+                Cierre de Caja Pendiente
+              </h3>
+              <p className="text-red-800 mb-4">
+                Hay ventas del día anterior que no han sido cerradas. Debe realizar el cierre de caja antes de poder registrar nuevas ventas o recoger efectivo.
+              </p>
+              <button
+                onClick={() => router.push('/admin/cierre-caja')}
+                className="px-6 py-3 rounded-lg font-bold transition hover:opacity-90"
+                style={{ backgroundColor: '#0e0142', color: '#ffe248' }}
+              >
+                🔒 Ir a Cierre de Caja
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -433,6 +545,7 @@ export default function VentasPage() {
           <li>• Las ventas son registradas por los vendedores desde sus dispositivos</li>
           <li>• Las ventas pendientes requieren tu verificación antes de ser confirmadas</li>
           <li>• Las ventas en efectivo se suman automáticamente a la caja</li>
+          <li>• Usa el botón "Devoluciones" para gestionar productos devueltos</li>
           <li>• Click en "Ver detalles" para revisar y verificar una venta</li>
         </ul>
       </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { getFechaActual } from '@/lib/utils/dates'
@@ -36,6 +37,7 @@ interface Recogida {
 }
 
 export default function CierreCajaPage() {
+  const router = useRouter()
   const [fecha, setFecha] = useState(getFechaActual())
   const [loading, setLoading] = useState(false)
   const [cerrandoDia, setCerrandoDia] = useState(false)
@@ -232,12 +234,30 @@ export default function CierreCajaPage() {
       // Obtener el usuario actual
       const { data: { user } } = await supabase.auth.getUser()
 
+      if (!user) {
+        alert('Usuario no autenticado')
+        return
+      }
+
+      // Obtener el ID del usuario en la tabla usuarios usando auth_id
+      const { data: usuario, error: usuarioError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('auth_id', user.id)
+        .single()
+
+      if (usuarioError || !usuario) {
+        console.error('Error obteniendo usuario:', usuarioError)
+        alert('Error: No se encontró el usuario en el sistema')
+        return
+      }
+
       // Guardar el cierre en la base de datos
       const { error: cierreError } = await supabase
         .from('cierres_diarios')
         .insert({
           fecha: fecha,
-          cerrado_por: user?.id,
+          cerrado_por: usuario.id,
           total_efectivo: resumenVentas.efectivo,
           total_tarjeta: resumenVentas.tarjeta,
           total_transferencia: resumenVentas.transferencia,
@@ -247,7 +267,7 @@ export default function CierreCajaPage() {
 
       if (cierreError) {
         console.error('Error guardando cierre:', cierreError)
-        alert('Error al guardar el cierre del día')
+        alert(`Error al guardar el cierre del día: ${cierreError.message}`)
         return
       }
 
@@ -266,6 +286,14 @@ export default function CierreCajaPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-6">
+      <button
+        onClick={() => router.push('/admin/ventas')}
+        className="mb-4 px-4 py-2 rounded-lg font-medium transition hover:opacity-80 flex items-center gap-2"
+        style={{ backgroundColor: '#f3f1fa', color: '#6f4ec8' }}
+      >
+        ← Regresar a Ventas
+      </button>
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

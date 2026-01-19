@@ -31,3 +31,13 @@ export function getHoraActual(): string {
 
   return `${hours}:${minutes}:${seconds}`
 }
+
+/**
+ * Formatea una fecha en formato YYYY-MM-DD a formato local (DD/MM/YYYY) sin conversión UTC
+ */
+export function formatFechaLocal(fechaStr: string): string {
+  // Parse YYYY-MM-DD sin conversión UTC
+  const [year, month, day] = fechaStr.split('-').map(Number)
+  const fecha = new Date(year, month - 1, day) // Crear fecha local directamente
+  return fecha.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
