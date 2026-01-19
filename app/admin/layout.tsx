@@ -86,10 +86,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {menuItems.map((item) => {
             const isActive = pathname === item.href
             return (
-              <a
+              <button
                 key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 transition-all ${
+                onClick={() => router.push(item.href)}
+                className={`w-full flex items-center gap-3 px-4 py-3 transition-all ${
                   isActive
                     ? 'border-l-4'
                     : 'border-l-4 border-transparent hover:bg-purple-900'
@@ -105,7 +105,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {sidebarOpen && (
                   <span className="font-medium">{item.label}</span>
                 )}
-              </a>
+              </button>
             )
           })}
         </nav>
