@@ -44,6 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { icon: '🔄', label: 'Devoluciones', href: '/admin/devoluciones' },
     { icon: '🛒', label: 'Compras', href: '/admin/compras' },
     { icon: '💵', label: 'Recogida Efectivo', href: '/admin/recogidas-efectivo' },
+    { icon: '🔐', label: 'Cierre de Caja', href: '/admin/cierre-caja' },
     { icon: '📈', label: 'Reportes', href: '/admin/reportes' },
   ]
 
