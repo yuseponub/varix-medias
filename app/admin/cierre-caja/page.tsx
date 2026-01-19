@@ -51,10 +51,48 @@ export default function CierreCajaPage() {
   const [recogidas, setRecogidas] = useState<Recogida[]>([])
   const [saldoInicial, setSaldoInicial] = useState(0)
   const [saldoFinal, setSaldoFinal] = useState(0)
+  const [inicializado, setInicializado] = useState(false)
 
   useEffect(() => {
-    cargarDatosDia()
+    if (!inicializado) {
+      cargarFechaConVentas()
+    } else {
+      cargarDatosDia()
+    }
   }, [fecha])
+
+  async function cargarFechaConVentas() {
+    // Buscar el último día con ventas no cerrado
+    const hoy = getFechaActual()
+
+    // Primero verificar si hoy tiene ventas
+    const { data: ventasHoy } = await supabase
+      .from('ventas')
+      .select('id')
+      .eq('fecha', hoy)
+      .limit(1)
+
+    if (ventasHoy && ventasHoy.length > 0) {
+      // Hoy tiene ventas, usar hoy
+      setInicializado(true)
+      cargarDatosDia()
+      return
+    }
+
+    // Si hoy no tiene ventas, buscar el último día con ventas
+    const { data: ultimaVenta } = await supabase
+      .from('ventas')
+      .select('fecha')
+      .order('fecha', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (ultimaVenta && ultimaVenta.fecha !== hoy) {
+      setFecha(ultimaVenta.fecha)
+    }
+
+    setInicializado(true)
+  }
 
   async function cargarDatosDia() {
     setLoading(true)
