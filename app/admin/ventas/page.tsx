@@ -29,6 +29,8 @@ export default function VentasPage() {
   const [filter, setFilter] = useState<'all' | 'hoy' | 'semana' | 'mes'>('hoy')
   const [searchTerm, setSearchTerm] = useState('')
   const [necesitaCierreCaja, setNecesitaCierreCaja] = useState(false)
+  const [ventaAEliminar, setVentaAEliminar] = useState<Venta | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   useEffect(() => {
     checkAuth()
@@ -202,6 +204,68 @@ export default function VentasPage() {
     })
 
     setVentasFiltradas(filtered)
+  }
+
+  const handleEliminarVenta = async () => {
+    if (!ventaAEliminar) return
+
+    setEliminando(true)
+    try {
+      // 1. Obtener detalles completos de la venta
+      const { data: ventaCompleta, error: ventaError } = await supabase
+        .from('ventas')
+        .select('*')
+        .eq('id', ventaAEliminar.id)
+        .single()
+
+      if (ventaError || !ventaCompleta) {
+        throw new Error('No se pudo obtener los detalles de la venta')
+      }
+
+      // 2. Restaurar stock de productos vendidos
+      if (ventaCompleta.productos_vendidos && Array.isArray(ventaCompleta.productos_vendidos)) {
+        for (const producto of ventaCompleta.productos_vendidos) {
+          const { error: stockError } = await supabase.rpc('incrementar_stock_producto', {
+            p_producto_id: producto.producto_id,
+            p_cantidad: producto.cantidad || 1
+          })
+
+          if (stockError) {
+            console.error('Error restaurando stock:', stockError)
+          }
+        }
+      }
+
+      // 3. Si fue pago en efectivo, restar del saldo de caja
+      if (ventaCompleta.metodo_pago === 'efectivo') {
+        const { error: cajaError } = await supabase.rpc('actualizar_saldo_caja', {
+          p_monto: -ventaCompleta.total
+        })
+
+        if (cajaError) {
+          console.error('Error actualizando caja:', cajaError)
+        }
+      }
+
+      // 4. Eliminar la venta
+      const { error: deleteError } = await supabase
+        .from('ventas')
+        .delete()
+        .eq('id', ventaAEliminar.id)
+
+      if (deleteError) {
+        throw deleteError
+      }
+
+      alert('✅ Venta eliminada exitosamente. El stock y efectivo han sido restaurados.')
+      setVentaAEliminar(null)
+      await loadVentas()
+    } catch (error) {
+      console.error('Error eliminando venta:', error)
+      alert('❌ Error al eliminar la venta: ' + (error instanceof Error ? error.message : 'Error desconocido'))
+    } finally {
+      setEliminando(false)
+    }
   }
 
   const totalVentas = ventasFiltradas.reduce((sum, v) => sum + v.total, 0)
@@ -528,6 +592,14 @@ export default function VentasPage() {
                         >
                           Ver detalles
                         </button>
+                        <button
+                          onClick={() => setVentaAEliminar(venta)}
+                          className="px-3 py-1 rounded-lg text-white transition hover:opacity-80"
+                          style={{ backgroundColor: '#dc2626' }}
+                          title="Eliminar venta"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -547,8 +619,84 @@ export default function VentasPage() {
           <li>• Las ventas en efectivo se suman automáticamente a la caja</li>
           <li>• Usa el botón "Devoluciones" para gestionar productos devueltos</li>
           <li>• Click en "Ver detalles" para revisar y verificar una venta</li>
+          <li>• Solo los administradores pueden eliminar ventas</li>
         </ul>
       </div>
+
+      {/* Modal de Confirmación de Eliminación */}
+      {ventaAEliminar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+            {/* Header del Modal */}
+            <div className="p-6 border-b">
+              <div className="flex items-center gap-3">
+                <span className="text-4xl">⚠️</span>
+                <div>
+                  <h2 className="text-2xl font-bold text-red-600">
+                    Eliminar Venta
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    Esta acción no se puede deshacer
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Body del Modal */}
+            <div className="p-6">
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-red-900 font-semibold mb-2">
+                  ⚠️ Al eliminar esta venta se realizarán las siguientes acciones:
+                </p>
+                <ul className="text-sm text-red-800 space-y-1 ml-4">
+                  <li>✓ Se restaurará el stock de los productos vendidos</li>
+                  {ventaAEliminar.metodo_pago === 'efectivo' && (
+                    <li>✓ Se restará ${ventaAEliminar.total.toLocaleString('es-CO')} del efectivo en caja</li>
+                  )}
+                  <li>✓ La venta desaparecerá del historial permanentemente</li>
+                </ul>
+              </div>
+
+              <div className="space-y-2 text-sm">
+                <p><strong>Factura:</strong> {ventaAEliminar.numero_factura || 'N/A'}</p>
+                <p><strong>Cliente:</strong> {ventaAEliminar.nombre_cliente || 'Sin datos'}</p>
+                <p><strong>Total:</strong> ${ventaAEliminar.total.toLocaleString('es-CO')}</p>
+                <p><strong>Fecha:</strong> {formatFechaLocal(ventaAEliminar.fecha)} {ventaAEliminar.hora}</p>
+                <p><strong>Vendedor:</strong> {ventaAEliminar.vendedor_nombre}</p>
+              </div>
+            </div>
+
+            {/* Footer del Modal */}
+            <div className="p-6 border-t flex gap-3 justify-end">
+              <button
+                onClick={() => setVentaAEliminar(null)}
+                disabled={eliminando}
+                className="px-6 py-3 rounded-lg font-medium transition hover:bg-gray-100 disabled:opacity-50"
+                style={{ color: '#0e0142', backgroundColor: '#f3f4f6' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleEliminarVenta}
+                disabled={eliminando}
+                className="px-6 py-3 rounded-lg font-bold text-white transition hover:opacity-80 disabled:opacity-50 flex items-center gap-2"
+                style={{ backgroundColor: '#dc2626' }}
+              >
+                {eliminando ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    🗑️ Eliminar Venta
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
