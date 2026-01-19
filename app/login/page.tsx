@@ -52,6 +52,11 @@ export default function LoginPage() {
       localStorage.setItem('user_name', usuario.nombre)
       localStorage.setItem('user_id', usuario.id)
 
+      // Guardar permisos en localStorage para acceso rápido en la UI
+      if (permisos) {
+        localStorage.setItem('user_permisos', JSON.stringify(permisos))
+      }
+
       // Todos van al dashboard de admin (no hay más panel de vendedor)
       router.push('/admin/dashboard')
     } catch (err: any) {

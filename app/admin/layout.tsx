@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter, usePathname } from 'next/navigation'
+import { usePermisos } from '@/lib/hooks/usePermisos'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
+  const { tiene } = usePermisos()
   const [userName, setUserName] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
@@ -36,7 +38,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { icon: '🛒', label: 'Compras', href: '/admin/compras' },
     { icon: '📦', label: 'Inventario', href: '/admin/inventario' },
     { icon: '📜', label: 'Historial', href: '/admin/historial' },
-    { icon: '👥', label: 'Usuarios', href: '/admin/usuarios' },
+    ...(tiene('puede_gestionar_usuarios') ? [{ icon: '👥', label: 'Usuarios', href: '/admin/usuarios' }] : []),
   ]
 
   return (

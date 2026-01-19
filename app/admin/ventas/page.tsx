@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { getFechaActual } from '@/lib/utils/dates'
+import { usePermisos } from '@/lib/hooks/usePermisos'
 
 interface Venta {
   id: string
@@ -23,6 +24,7 @@ interface Venta {
 
 export default function VentasPage() {
   const router = useRouter()
+  const { tiene } = usePermisos()
   const [loading, setLoading] = useState(true)
   const [ventas, setVentas] = useState<Venta[]>([])
   const [ventasFiltradas, setVentasFiltradas] = useState<Venta[]>([])
@@ -317,15 +319,17 @@ export default function VentasPage() {
             🔄 Devoluciones
           </button>
 
-          <button
-            onClick={() => router.push('/admin/recogidas-efectivo')}
-            disabled={necesitaCierreCaja}
-            className="px-6 py-3 rounded-lg font-bold transition hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ backgroundColor: '#a294da', color: 'white' }}
-            title={necesitaCierreCaja ? 'Debe cerrar el día anterior antes de recoger efectivo' : ''}
-          >
-            💵 Recoger Efectivo
-          </button>
+          {tiene('puede_recoger_efectivo') && (
+            <button
+              onClick={() => router.push('/admin/recogidas-efectivo')}
+              disabled={necesitaCierreCaja}
+              className="px-6 py-3 rounded-lg font-bold transition hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ backgroundColor: '#a294da', color: 'white' }}
+              title={necesitaCierreCaja ? 'Debe cerrar el día anterior antes de recoger efectivo' : ''}
+            >
+              💵 Recoger Efectivo
+            </button>
+          )}
 
           <button
             onClick={() => router.push('/admin/cierre-caja')}
@@ -592,14 +596,16 @@ export default function VentasPage() {
                         >
                           Ver detalles
                         </button>
-                        <button
-                          onClick={() => setVentaAEliminar(venta)}
-                          className="px-3 py-1 rounded-lg text-white transition hover:opacity-80"
-                          style={{ backgroundColor: '#dc2626' }}
-                          title="Eliminar venta"
-                        >
-                          🗑️
-                        </button>
+                        {tiene('puede_eliminar_ventas') && (
+                          <button
+                            onClick={() => setVentaAEliminar(venta)}
+                            className="px-3 py-1 rounded-lg text-white transition hover:opacity-80"
+                            style={{ backgroundColor: '#dc2626' }}
+                            title="Eliminar venta"
+                          >
+                            🗑️
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
