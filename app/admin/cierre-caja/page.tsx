@@ -39,6 +39,7 @@ export default function CierreCajaPage() {
   const [fecha, setFecha] = useState(getFechaActual())
   const [loading, setLoading] = useState(false)
   const [cerrandoDia, setCerrandoDia] = useState(false)
+  const [diaCerrado, setDiaCerrado] = useState(false)
   const [resumenVentas, setResumenVentas] = useState<ResumenVentas>({
     efectivo: 0,
     tarjeta: 0,
@@ -58,6 +59,15 @@ export default function CierreCajaPage() {
   async function cargarDatosDia() {
     setLoading(true)
     try {
+      // Verificar si el día ya está cerrado
+      const { data: cierreDia } = await supabase
+        .from('cierres_diarios')
+        .select('id')
+        .eq('fecha', fecha)
+        .single()
+
+      setDiaCerrado(!!cierreDia)
+
       // Cargar ventas del día
       const { data: ventas, error: ventasError } = await supabase
         .from('ventas')
@@ -147,23 +157,27 @@ export default function CierreCajaPage() {
   const totalDevoluciones = devoluciones.reduce((sum, d) => sum + d.monto, 0)
   const totalRecogido = recogidas.reduce((sum, r) => sum + r.efectivo_recogido, 0)
 
-  // Calcular si es hoy o ayer
+  // Calcular si es hoy
   const hoy = getFechaActual()
   const esHoy = fecha === hoy
 
-  // Calcular fecha de ayer
-  const fechaActualObj = new Date()
-  const colombiaOffset = -5 * 60
-  const localOffset = fechaActualObj.getTimezoneOffset()
-  const colombiaTime = new Date(fechaActualObj.getTime() + (colombiaOffset - localOffset) * 60 * 1000)
-  colombiaTime.setDate(colombiaTime.getDate() - 1)
-  const ayer = `${colombiaTime.getFullYear()}-${String(colombiaTime.getMonth() + 1).padStart(2, '0')}-${String(colombiaTime.getDate()).padStart(2, '0')}`
-  const esAyer = fecha === ayer
+  // Calcular cuántos días de diferencia hay
+  const fechaSeleccionada = new Date(fecha + 'T00:00:00')
+  const fechaHoy = new Date(hoy + 'T00:00:00')
+  const diferenciaDias = Math.floor((fechaHoy.getTime() - fechaSeleccionada.getTime()) / (1000 * 60 * 60 * 24))
+
+  // Determinar el texto del botón según cuántos días de diferencia hay
+  const getTextoCierre = () => {
+    if (esHoy) return '🔒 Cerrar Día de Hoy'
+    if (diferenciaDias === 1) return '🔒 Cerrar Ventas de Ayer'
+    if (diferenciaDias > 1) return `🔒 Cerrar Ventas del ${formatDate(fecha)}`
+    return '🔒 Cerrar Día'
+  }
 
   async function handleCerrarDia() {
-    const mensaje = esAyer
-      ? '¿Estás seguro de cerrar las ventas de ayer?\n\nEsto marcará el día como cerrado.'
-      : '¿Estás seguro de cerrar este día?\n\nEsto marcará el día como cerrado.'
+    const mensaje = esHoy
+      ? '¿Estás seguro de cerrar el día de hoy?\n\nEsto marcará el día como cerrado y no se podrá modificar.'
+      : `¿Estás seguro de cerrar las ventas del ${formatDate(fecha)}?\n\nEsto marcará el día como cerrado y no se podrá modificar.`
 
     if (!confirm(mensaje)) {
       return
@@ -172,12 +186,29 @@ export default function CierreCajaPage() {
     try {
       setCerrandoDia(true)
 
-      // Por ahora solo mostrar confirmación
-      // En el futuro se puede agregar lógica adicional si es necesario
-      const exitoMsg = esAyer
-        ? `✅ Ventas de ayer cerradas exitosamente\n\nFecha: ${formatDate(fecha)}`
-        : `✅ Día cerrado exitosamente\n\nFecha: ${formatDate(fecha)}`
+      // Obtener el usuario actual
+      const { data: { user } } = await supabase.auth.getUser()
 
+      // Guardar el cierre en la base de datos
+      const { error: cierreError } = await supabase
+        .from('cierres_diarios')
+        .insert({
+          fecha: fecha,
+          cerrado_por: user?.id,
+          total_efectivo: resumenVentas.efectivo,
+          total_tarjeta: resumenVentas.tarjeta,
+          total_transferencia: resumenVentas.transferencia,
+          total_ventas: resumenVentas.total,
+          cantidad_ventas: resumenVentas.cantidad_ventas
+        })
+
+      if (cierreError) {
+        console.error('Error guardando cierre:', cierreError)
+        alert('Error al guardar el cierre del día')
+        return
+      }
+
+      const exitoMsg = `✅ Día cerrado exitosamente\n\nFecha: ${formatDate(fecha)}\nTotal: ${formatCurrency(resumenVentas.total)}`
       alert(exitoMsg)
 
       // Recargar datos
@@ -340,8 +371,21 @@ export default function CierreCajaPage() {
             </div>
           )}
 
-          {/* Estado del día */}
-          {resumenVentas.cantidad_ventas === 0 && recogidas.length === 0 && devoluciones.length === 0 && (
+          {/* Estado del día cerrado */}
+          {diaCerrado && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">✅</span>
+                <div>
+                  <p className="text-green-900 font-bold text-lg">Día Cerrado</p>
+                  <p className="text-green-700 text-sm mt-1">Este día ya fue cerrado y no se puede modificar</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Estado del día sin operaciones */}
+          {resumenVentas.cantidad_ventas === 0 && recogidas.length === 0 && devoluciones.length === 0 && !diaCerrado && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
               <p className="text-yellow-800 font-medium">No hay operaciones registradas para este día</p>
               <p className="text-yellow-600 text-sm mt-1">Selecciona otra fecha para ver el reporte</p>
@@ -351,17 +395,13 @@ export default function CierreCajaPage() {
           {/* Botones de acción */}
           {resumenVentas.cantidad_ventas > 0 && (
             <div className="flex justify-end gap-3">
-              {(esHoy || esAyer) && (
+              {!diaCerrado && (
                 <button
                   onClick={handleCerrarDia}
                   disabled={cerrandoDia}
                   className="px-6 py-2 bg-[#55ce63] hover:bg-[#45be53] text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {cerrandoDia
-                    ? 'Cerrando...'
-                    : esAyer
-                    ? '🔒 Cerrar Ventas de Ayer'
-                    : '🔒 Cerrar Día de Hoy'}
+                  {cerrandoDia ? 'Cerrando...' : getTextoCierre()}
                 </button>
               )}
               <button
