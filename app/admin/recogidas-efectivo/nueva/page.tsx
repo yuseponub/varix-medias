@@ -521,10 +521,10 @@ export default function NuevaRecogidaPage() {
             </div>
           )}
 
-          {/* Foto del Efectivo */}
+          {/* Foto del Recibo de Caja */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Foto del Efectivo Recogido *
+              Foto del Recibo de Caja (firmado) *
             </label>
             <input
               type="file"
@@ -534,6 +534,9 @@ export default function NuevaRecogidaPage() {
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#55ce63] focus:border-transparent"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Sube la foto del recibo de caja firmado por quien recibe el efectivo
+            </p>
             {previewUrl && (
               <div className="mt-3">
                 <img src={previewUrl} alt="Preview" className="max-w-full h-auto rounded-lg border max-h-64 object-contain" />
