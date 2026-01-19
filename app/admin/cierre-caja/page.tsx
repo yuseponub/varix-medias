@@ -147,8 +147,25 @@ export default function CierreCajaPage() {
   const totalDevoluciones = devoluciones.reduce((sum, d) => sum + d.monto, 0)
   const totalRecogido = recogidas.reduce((sum, r) => sum + r.efectivo_recogido, 0)
 
+  // Calcular si es hoy o ayer
+  const hoy = getFechaActual()
+  const esHoy = fecha === hoy
+
+  // Calcular fecha de ayer
+  const fechaActualObj = new Date()
+  const colombiaOffset = -5 * 60
+  const localOffset = fechaActualObj.getTimezoneOffset()
+  const colombiaTime = new Date(fechaActualObj.getTime() + (colombiaOffset - localOffset) * 60 * 1000)
+  colombiaTime.setDate(colombiaTime.getDate() - 1)
+  const ayer = `${colombiaTime.getFullYear()}-${String(colombiaTime.getMonth() + 1).padStart(2, '0')}-${String(colombiaTime.getDate()).padStart(2, '0')}`
+  const esAyer = fecha === ayer
+
   async function handleCerrarDia() {
-    if (!confirm('¿Estás seguro de cerrar el día de hoy?\n\nEsto permitirá registrar ventas para el día siguiente.')) {
+    const mensaje = esAyer
+      ? '¿Estás seguro de cerrar las ventas de ayer?\n\nEsto marcará el día como cerrado.'
+      : '¿Estás seguro de cerrar este día?\n\nEsto marcará el día como cerrado.'
+
+    if (!confirm(mensaje)) {
       return
     }
 
@@ -157,7 +174,11 @@ export default function CierreCajaPage() {
 
       // Por ahora solo mostrar confirmación
       // En el futuro se puede agregar lógica adicional si es necesario
-      alert(`✅ Día cerrado exitosamente\n\nFecha: ${formatDate(fecha)}\n\nYa puedes registrar ventas para el día siguiente.`)
+      const exitoMsg = esAyer
+        ? `✅ Ventas de ayer cerradas exitosamente\n\nFecha: ${formatDate(fecha)}`
+        : `✅ Día cerrado exitosamente\n\nFecha: ${formatDate(fecha)}`
+
+      alert(exitoMsg)
 
       // Recargar datos
       await cargarDatosDia()
@@ -168,8 +189,6 @@ export default function CierreCajaPage() {
       setCerrandoDia(false)
     }
   }
-
-  const esHoy = fecha === getFechaActual()
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-6">
@@ -332,13 +351,17 @@ export default function CierreCajaPage() {
           {/* Botones de acción */}
           {resumenVentas.cantidad_ventas > 0 && (
             <div className="flex justify-end gap-3">
-              {esHoy && (
+              {(esHoy || esAyer) && (
                 <button
                   onClick={handleCerrarDia}
                   disabled={cerrandoDia}
                   className="px-6 py-2 bg-[#55ce63] hover:bg-[#45be53] text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {cerrandoDia ? 'Cerrando...' : '🔒 Cerrar Día de Hoy'}
+                  {cerrandoDia
+                    ? 'Cerrando...'
+                    : esAyer
+                    ? '🔒 Cerrar Ventas de Ayer'
+                    : '🔒 Cerrar Día de Hoy'}
                 </button>
               )}
               <button
