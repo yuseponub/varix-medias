@@ -9,8 +9,12 @@ export default function NuevaRecogidaPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [userId, setUserId] = useState<string>('')
-  const [efectivoSistema, setEfectivoSistema] = useState<number>(0)
-  const [loadingEfectivo, setLoadingEfectivo] = useState(true)
+
+  // Acumulaciones calculadas desde ventas
+  const [efectivoAcumulado, setEfectivoAcumulado] = useState<number>(0)
+  const [tarjetaAcumulada, setTarjetaAcumulada] = useState<number>(0)
+  const [transferenciaAcumulada, setTransferenciaAcumulada] = useState<number>(0)
+  const [loadingAcumulaciones, setLoadingAcumulaciones] = useState(true)
 
   const [formData, setFormData] = useState({
     fecha_recogida: format(new Date(), 'yyyy-MM-dd'),
@@ -26,7 +30,7 @@ export default function NuevaRecogidaPage() {
 
   useEffect(() => {
     fetchUser()
-    fetchEfectivoSistema()
+    fetchAcumulaciones()
     fetchUltimaRecogida()
   }, [])
 
@@ -48,23 +52,51 @@ export default function NuevaRecogidaPage() {
     }
   }
 
-  async function fetchEfectivoSistema() {
+  async function fetchAcumulaciones() {
     try {
-      // Obtener saldo actual de caja
-      const { data: cajaData, error: cajaError } = await supabase
-        .from('caja_efectivo')
-        .select('saldo_actual')
-        .eq('id', 1)
+      // Obtener la última recogida para saber desde cuándo calcular
+      const { data: ultimaRecogida } = await supabase
+        .from('recogidas_efectivo')
+        .select('periodo_hasta')
+        .order('fecha_recogida', { ascending: false })
+        .limit(1)
         .single()
 
-      if (cajaError) throw cajaError
+      const fechaDesde = ultimaRecogida
+        ? new Date(new Date(ultimaRecogida.periodo_hasta).getTime() + 86400000) // +1 día
+        : new Date('2000-01-01') // Si no hay recogidas, desde el principio
 
-      setEfectivoSistema(cajaData?.saldo_actual || 0)
+      // Calcular acumulaciones desde las ventas
+      const { data: ventas, error } = await supabase
+        .from('ventas')
+        .select('metodo_pago, total')
+        .gte('fecha', format(fechaDesde, 'yyyy-MM-dd'))
+        .lte('fecha', format(new Date(), 'yyyy-MM-dd'))
+
+      if (error) throw error
+
+      let efectivo = 0
+      let tarjeta = 0
+      let transferencia = 0
+
+      ventas?.forEach(venta => {
+        if (venta.metodo_pago === 'efectivo') {
+          efectivo += venta.total
+        } else if (venta.metodo_pago === 'tarjeta') {
+          tarjeta += venta.total
+        } else if (venta.metodo_pago === 'transferencia') {
+          transferencia += venta.total
+        }
+      })
+
+      setEfectivoAcumulado(efectivo)
+      setTarjetaAcumulada(tarjeta)
+      setTransferenciaAcumulada(transferencia)
     } catch (error) {
-      console.error('Error fetching efectivo sistema:', error)
-      alert('Error al obtener el efectivo en sistema')
+      console.error('Error calculando acumulaciones:', error)
+      alert('Error al calcular acumulaciones de ventas')
     } finally {
-      setLoadingEfectivo(false)
+      setLoadingAcumulaciones(false)
     }
   }
 
@@ -79,7 +111,6 @@ export default function NuevaRecogidaPage() {
         .single()
 
       if (data) {
-        // Establecer periodo_desde como el día siguiente a la última recogida
         const ultimaFecha = new Date(data.periodo_hasta)
         ultimaFecha.setDate(ultimaFecha.getDate() + 1)
         setFormData(prev => ({
@@ -88,9 +119,15 @@ export default function NuevaRecogidaPage() {
         }))
       }
     } catch (error) {
-      // Si no hay recogidas previas, no hacer nada
       console.log('No hay recogidas previas')
     }
+  }
+
+  function handleRecogerTodo() {
+    setFormData(prev => ({
+      ...prev,
+      efectivo_recogido: efectivoAcumulado.toString()
+    }))
   }
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -121,6 +158,16 @@ export default function NuevaRecogidaPage() {
       return
     }
 
+    if (efectivoRecogido > efectivoAcumulado) {
+      const confirmar = confirm(
+        `⚠️ ADVERTENCIA: Estás recogiendo más efectivo del acumulado\n\n` +
+        `Efectivo acumulado: ${formatCurrency(efectivoAcumulado)}\n` +
+        `Efectivo a recoger: ${formatCurrency(efectivoRecogido)}\n\n` +
+        `¿Deseas continuar de todos modos?`
+      )
+      if (!confirmar) return
+    }
+
     setLoading(true)
 
     try {
@@ -144,7 +191,7 @@ export default function NuevaRecogidaPage() {
           hora: formData.hora,
           periodo_desde: formData.periodo_desde,
           periodo_hasta: formData.periodo_hasta,
-          efectivo_sistema: efectivoSistema,
+          efectivo_sistema: efectivoAcumulado,
           efectivo_recogido: efectivoRecogido,
           foto_efectivo_url: publicUrl,
           observaciones: formData.observaciones || null,
@@ -155,8 +202,14 @@ export default function NuevaRecogidaPage() {
 
       if (insertError) throw insertError
 
-      // 3. Actualizar caja_efectivo - RESTAR el efectivo recogido
-      const nuevoSaldo = efectivoSistema - efectivoRecogido
+      // 3. Actualizar caja_efectivo - RESTAR el efectivo recogido del acumulado
+      const { data: cajaActual } = await supabase
+        .from('caja_efectivo')
+        .select('saldo_actual')
+        .eq('id', 1)
+        .single()
+
+      const nuevoSaldo = (cajaActual?.saldo_actual || 0) - efectivoRecogido
 
       const { error: updateCajaError } = await supabase
         .from('caja_efectivo')
@@ -177,8 +230,8 @@ export default function NuevaRecogidaPage() {
           fecha: formData.fecha_recogida,
           hora: formData.hora,
           tipo: 'recogida',
-          monto: -efectivoRecogido, // Negativo porque sale de caja
-          saldo_anterior: efectivoSistema,
+          monto: -efectivoRecogido,
+          saldo_anterior: cajaActual?.saldo_actual || 0,
           saldo_nuevo: nuevoSaldo,
           referencia_id: recogidaData.id,
           responsable_id: userId,
@@ -207,36 +260,75 @@ export default function NuevaRecogidaPage() {
   }
 
   const diferencia = formData.efectivo_recogido
-    ? parseFloat(formData.efectivo_recogido) - efectivoSistema
+    ? parseFloat(formData.efectivo_recogido) - efectivoAcumulado
     : 0
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 p-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Nueva Recogida de Efectivo</h1>
-        <p className="text-gray-600 mt-1">Registra la recogida de efectivo de caja</p>
+        <p className="text-gray-600 mt-1">Registra la recogida de efectivo y verifica los métodos de pago digitales</p>
       </div>
 
-      {/* Efectivo en Sistema */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex items-center gap-3">
-          <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <p className="text-sm text-blue-700 font-medium">Efectivo en Sistema (Caja Actual)</p>
-            {loadingEfectivo ? (
-              <p className="text-blue-900 text-lg font-bold">Calculando...</p>
-            ) : (
-              <p className="text-blue-900 text-2xl font-bold">{formatCurrency(efectivoSistema)}</p>
-            )}
+      {/* Acumulaciones */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Efectivo */}
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-green-100">💵 Efectivo Acumulado</h3>
+            <svg className="w-8 h-8 text-green-200 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
           </div>
+          {loadingAcumulaciones ? (
+            <p className="text-2xl font-bold">Calculando...</p>
+          ) : (
+            <p className="text-3xl font-bold">{formatCurrency(efectivoAcumulado)}</p>
+          )}
+          <p className="text-xs text-green-100 mt-2">Disponible para recoger</p>
+        </div>
+
+        {/* Tarjeta */}
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-blue-100">💳 Tarjeta Acumulada</h3>
+            <svg className="w-8 h-8 text-blue-200 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          </div>
+          {loadingAcumulaciones ? (
+            <p className="text-2xl font-bold">Calculando...</p>
+          ) : (
+            <p className="text-3xl font-bold">{formatCurrency(tarjetaAcumulada)}</p>
+          )}
+          <p className="text-xs text-blue-100 mt-2">Solo verificación</p>
+        </div>
+
+        {/* Transferencia */}
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-purple-100">🏦 Transferencias Acumuladas</h3>
+            <svg className="w-8 h-8 text-purple-200 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </div>
+          {loadingAcumulaciones ? (
+            <p className="text-2xl font-bold">Calculando...</p>
+          ) : (
+            <p className="text-3xl font-bold">{formatCurrency(transferenciaAcumulada)}</p>
+          )}
+          <p className="text-xs text-purple-100 mt-2">Solo verificación</p>
         </div>
       </div>
 
-      {/* Formulario */}
+      {/* Formulario de Recogida de Efectivo */}
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
+        <div className="border-b pb-4">
+          <h2 className="text-xl font-bold text-gray-900">Recogida de Efectivo</h2>
+          <p className="text-sm text-gray-600">Solo se recoge físicamente el efectivo</p>
+        </div>
+
         {/* Fecha y Hora */}
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -298,16 +390,28 @@ export default function NuevaRecogidaPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Efectivo Recogido (Real) *
           </label>
-          <input
-            type="number"
-            required
-            min="0"
-            step="0.01"
-            value={formData.efectivo_recogido}
-            onChange={(e) => setFormData({ ...formData, efectivo_recogido: e.target.value })}
-            placeholder="Ingresa el efectivo contado físicamente"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#55ce63] focus:border-transparent"
-          />
+          <div className="flex gap-2">
+            <input
+              type="number"
+              required
+              min="0"
+              step="0.01"
+              value={formData.efectivo_recogido}
+              onChange={(e) => setFormData({ ...formData, efectivo_recogido: e.target.value })}
+              placeholder="Ingresa el efectivo contado físicamente"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#55ce63] focus:border-transparent"
+            />
+            <button
+              type="button"
+              onClick={handleRecogerTodo}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors whitespace-nowrap"
+            >
+              Recoger Todo
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Click en "Recoger Todo" para recoger todo el efectivo acumulado ({formatCurrency(efectivoAcumulado)})
+          </p>
         </div>
 
         {/* Diferencia Calculada */}
@@ -382,13 +486,29 @@ export default function NuevaRecogidaPage() {
           </button>
           <button
             type="submit"
-            disabled={loading || loadingEfectivo}
+            disabled={loading || loadingAcumulaciones}
             className="flex-1 bg-[#55ce63] hover:bg-[#45be53] text-white px-6 py-2 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Registrando...' : 'Registrar Recogida'}
           </button>
         </div>
       </form>
+
+      {/* Info sobre tarjeta y transferencias */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <svg className="w-6 h-6 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="text-sm font-medium text-blue-900">Información sobre pagos digitales</p>
+            <p className="text-sm text-blue-700 mt-1">
+              Los montos de tarjeta y transferencias solo se verifican contra los comprobantes de pago registrados en el sistema.
+              No se recogen físicamente. Puedes revisar los comprobantes en la sección de ventas.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
