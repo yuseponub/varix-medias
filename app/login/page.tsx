@@ -52,24 +52,8 @@ export default function LoginPage() {
       localStorage.setItem('user_name', usuario.nombre)
       localStorage.setItem('user_id', usuario.id)
 
-      // Redirigir según rol y permisos
-      // Si es admin, siempre va al dashboard de admin
-      if (usuario.rol === 'admin') {
-        router.push('/admin/dashboard')
-      }
-      // Si es vendedor pero tiene permisos de ver dashboard, compras, historial o gestionar usuarios, va a admin
-      else if (permisos && (
-        permisos.puede_ver_dashboard === true ||
-        permisos.puede_ver_compras === true ||
-        permisos.puede_ver_historial === true ||
-        permisos.puede_gestionar_usuarios === true
-      )) {
-        router.push('/admin/dashboard')
-      }
-      // Vendedor normal va a su panel de ventas
-      else {
-        router.push('/vendedor/vender')
-      }
+      // Todos van al dashboard de admin (no hay más panel de vendedor)
+      router.push('/admin/dashboard')
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión')
     } finally {

@@ -21,13 +21,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return
     }
 
-    const role = localStorage.getItem('user_role')
-    if (role !== 'admin') {
-      router.push('/vendedor/vender')
-      return
-    }
-
-    setUserName(localStorage.getItem('user_name') || 'Admin')
+    setUserName(localStorage.getItem('user_name') || 'Usuario')
   }
 
   const handleLogout = async () => {
@@ -115,9 +109,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div className="mb-2">
                 <p className="text-sm font-medium" style={{ color: '#ffe248' }}>
                   {userName}
-                </p>
-                <p className="text-xs" style={{ color: '#a294da' }}>
-                  Administrador
                 </p>
               </div>
               <button
