@@ -142,8 +142,9 @@ Solo existen estos 11 productos en el inventario:
 
    - Si encuentras la talla pero el tipo es confuso:
      * Busca pistas adicionales: "compresión", "varicosas", "circulación"
-     * Si el precio es ~$130,000 → probablemente rodilla
-     * Si el precio es ~$175,000 → probablemente muslo o panty
+     * Si el precio es ~$145,000 → probablemente rodilla
+     * Si el precio es ~$175,000 → probablemente muslo
+     * Si el precio es ~$190,000 → probablemente panty
 
 7. **Casos difíciles - usa razonamiento extremo:**
    - Si ves palabras parciales como "mus_o", "pan_y", "rod_lla" → infiere la palabra completa
@@ -158,45 +159,59 @@ Solo existen estos 11 productos en el inventario:
 8. **Nombres:** busca "Nombre", "Cliente", "Paciente", "Señor(a)" - extrae nombre completo
 9. **Cédulas:** busca "Cédula", "CC", "C.C.", "Identificación", "ID" - solo números sin puntos ni comas
 10. **Totales:** busca "Total", "Total a Pagar", "Valor Total", "$", "COP" - usa el total final si hay descuentos
-11. **Cantidad de pares:** busca "Cantidad", "Cant.", "Pares", "Unidades", "Qty" - suma si hay múltiples líneas
-12. Ten en cuenta que la letra puede ser manuscrita, impresa, o mixta
+11. Ten en cuenta que la letra puede ser manuscrita, impresa, o mixta
+
+🔴 **PRIORIDAD ALTA - CANTIDAD DE PARES** 🔴
+12. **Cantidad de pares (MUY IMPORTANTE):**
+   - Busca: "Cantidad", "Cant.", "Pares", "Unidades", "Qty", "x", "X", "Und", "Un"
+   - Puede aparecer como: "2 pares", "x2", "Cant: 3", "Unidades: 1", o simplemente un número cerca del producto
+   - Si ves "2 medias" o "2 pares" → cantidad_pares = 2
+   - Si dice "par de medias" sin número → cantidad_pares = 1
+   - Si hay múltiples líneas de productos, suma las cantidades
+   - **IMPORTANTE:** Si no encuentras cantidad explícita pero hay un solo producto → asume cantidad_pares = 1
+   - **NUNCA devuelvas null para cantidad_pares** - si no está claro, devuelve 1
+
+**PRECIOS DE REFERENCIA (para validar):**
+- Rodilla: $145,000
+- Muslo: $175,000
+- Panty: $190,000
 
 **EJEMPLOS DE EXTRACCIÓN CON PRIORIDAD EN REFERENCIAS (ENFOCADO EN NOMBRES):**
 
 Ejemplo 1 - NOMBRE DEL PRODUCTO (CASO MÁS COMÚN):
 - Texto: "Factura 123 | Media MUSLO | Talla: L | Cliente: Maria García | Total: $175.000"
-- Razonamiento: "MUSLO" + "L" → código 74114
-- Respuesta: {"numero_factura": "123", "referencia_producto": "74114", "nombre_cliente": "Maria García", "cedula_cliente": null, "total": 175000, "cantidad_pares": null}
+- Razonamiento: "MUSLO" + "L" → código 74114, sin cantidad explícita → 1 par
+- Respuesta: {"numero_factura": "123", "referencia_producto": "74114", "nombre_cliente": "Maria García", "cedula_cliente": null, "total": 175000, "cantidad_pares": 1}
 
 Ejemplo 2 - NOMBRE CON VARIACIÓN:
-- Texto: "No: 456 | Pantimedia M | Ana Martínez | CC: 12345678 | $175,000"
-- Razonamiento: "Pantimedia" = PANTY + "M" → código 75406
-- Respuesta: {"numero_factura": "456", "referencia_producto": "75406", "nombre_cliente": "Ana Martínez", "cedula_cliente": "12345678", "total": 175000, "cantidad_pares": null}
+- Texto: "No: 456 | Pantimedia M x2 | Ana Martínez | CC: 12345678 | $380,000"
+- Razonamiento: "Pantimedia" = PANTY + "M" → código 75406, "x2" → 2 pares
+- Respuesta: {"numero_factura": "456", "referencia_producto": "75406", "nombre_cliente": "Ana Martínez", "cedula_cliente": "12345678", "total": 380000, "cantidad_pares": 2}
 
 Ejemplo 3 - NOMBRE MANUSCRITO:
-- Texto: "Factura 789 | Media rodilla (manuscrito) | XL | Total: $130,000 | 2 pares"
-- Razonamiento: "rodilla" + "XL" → código 79323
-- Respuesta: {"numero_factura": "789", "referencia_producto": "79323", "nombre_cliente": null, "cedula_cliente": null, "total": 130000, "cantidad_pares": 2}
+- Texto: "Factura 789 | Media rodilla (manuscrito) | XL | Total: $290,000 | 2 pares"
+- Razonamiento: "rodilla" + "XL" → código 79323, "2 pares" explícito
+- Respuesta: {"numero_factura": "789", "referencia_producto": "79323", "nombre_cliente": null, "cedula_cliente": null, "total": 290000, "cantidad_pares": 2}
 
 Ejemplo 4 - NOMBRE PARCIAL:
 - Texto: "Med. mus_o | Talla M | Factura 321 | Pedro López | $175.000"
-- Razonamiento: "mus_o" = "muslo" + "M" → código 74113
-- Respuesta: {"numero_factura": "321", "referencia_producto": "74113", "nombre_cliente": "Pedro López", "cedula_cliente": null, "total": 175000, "cantidad_pares": null}
+- Razonamiento: "mus_o" = "muslo" + "M" → código 74113, sin cantidad → 1 par
+- Respuesta: {"numero_factura": "321", "referencia_producto": "74113", "nombre_cliente": "Pedro López", "cedula_cliente": null, "total": 175000, "cantidad_pares": 1}
 
 Ejemplo 5 - SOLO TIPO SIN TALLA:
-- Texto: "Factura 555 | Media PANTY | Total 175k | Juan Pérez"
-- Razonamiento: "PANTY" sin talla → inferir L (más común) → código 75407
-- Respuesta: {"numero_factura": "555", "referencia_producto": "75407", "nombre_cliente": "Juan Pérez", "cedula_cliente": null, "total": 175000, "cantidad_pares": null}
+- Texto: "Factura 555 | Media PANTY | Total 190k | Juan Pérez"
+- Razonamiento: "PANTY" sin talla → inferir L (más común) → código 75407, sin cantidad → 1 par
+- Respuesta: {"numero_factura": "555", "referencia_producto": "75407", "nombre_cliente": "Juan Pérez", "cedula_cliente": null, "total": 190000, "cantidad_pares": 1}
 
 Ejemplo 6 - TALLA DESCRITA EN PALABRAS:
-- Texto: "#888 | Rodilla Grande | Carlos | 130.000"
-- Razonamiento: "Rodilla" + "Grande" (= L) → código 79322
-- Respuesta: {"numero_factura": "888", "referencia_producto": "79322", "nombre_cliente": "Carlos", "cedula_cliente": null, "total": 130000, "cantidad_pares": null}
+- Texto: "#888 | Rodilla Grande | Carlos | 145.000"
+- Razonamiento: "Rodilla" + "Grande" (= L) → código 79322, sin cantidad → 1 par
+- Respuesta: {"numero_factura": "888", "referencia_producto": "79322", "nombre_cliente": "Carlos", "cedula_cliente": null, "total": 145000, "cantidad_pares": 1}
 
 Ejemplo 7 - CÓDIGO NUMÉRICO (menos común):
-- Texto: "FACTURA: 99 | REF: 74113 | CLIENTE: Maria García | TOTAL: $175.000"
-- Razonamiento: código exacto 74113
-- Respuesta: {"numero_factura": "99", "referencia_producto": "74113", "nombre_cliente": "Maria García", "cedula_cliente": null, "total": 175000, "cantidad_pares": null}
+- Texto: "FACTURA: 99 | REF: 74113 | CLIENTE: Maria García | TOTAL: $175.000 | Cant: 1"
+- Razonamiento: código exacto 74113, cantidad explícita 1
+- Respuesta: {"numero_factura": "99", "referencia_producto": "74113", "nombre_cliente": "Maria García", "cedula_cliente": null, "total": 175000, "cantidad_pares": 1}
 
 **AHORA ANALIZA ESTA FACTURA:**
 
@@ -209,9 +224,11 @@ Extrae la siguiente información (EN ORDEN DE PRIORIDAD):
 6. cedula_cliente (solo números)
 
 Responde ÚNICAMENTE con un objeto JSON válido en este formato exacto, sin texto adicional antes ni después:
-{"numero_factura": "...", "referencia_producto": "...", "nombre_cliente": "...", "cedula_cliente": "...", "total": 123456, "cantidad_pares": 5}
+{"numero_factura": "...", "referencia_producto": "...", "nombre_cliente": "...", "cedula_cliente": "...", "total": 123456, "cantidad_pares": 1}
 
-**RECUERDA:** El campo referencia_producto es EL MÁS IMPORTANTE. Esfuérzate al máximo, usa razonamiento, contexto, y coincidencias parciales. Solo devuelve null si es absolutamente imposible inferir el producto.`
+**RECUERDA:**
+- El campo referencia_producto es EL MÁS IMPORTANTE. Esfuérzate al máximo, usa razonamiento, contexto, y coincidencias parciales. Solo devuelve null si es absolutamente imposible inferir el producto.
+- **cantidad_pares SIEMPRE debe tener un valor numérico.** Si no encuentras cantidad explícita, devuelve 1. NUNCA devuelvas null para cantidad_pares.`
               },
               {
                 type: 'image',
