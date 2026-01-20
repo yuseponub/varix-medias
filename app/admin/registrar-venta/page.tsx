@@ -318,16 +318,15 @@ export default function RegistrarVentaPage() {
 
       if (ventaError) throw ventaError
 
-      // Actualizar stock del producto
-      const nuevoStock = producto.stock_normal - parseInt(formData.cantidad_pares)
-      const { error: stockError } = await supabase
-        .from('productos')
-        .update({ stock_normal: nuevoStock })
-        .eq('id', producto.id)
+      // Actualizar stock del producto usando función RPC (bypass RLS)
+      const { error: stockError } = await supabase.rpc('decrementar_stock_producto', {
+        p_producto_id: producto.id,
+        p_cantidad: parseInt(formData.cantidad_pares)
+      })
 
       if (stockError) {
         console.error('Error actualizando stock:', stockError)
-        // No bloqueamos la venta si falla la actualización del stock
+        alert('Advertencia: La venta se registró pero hubo un error actualizando el inventario. Contacta al administrador.')
       }
 
       // Si es efectivo, actualizar caja

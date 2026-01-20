@@ -380,15 +380,15 @@ export default function DevolucionesPage() {
 
       if (devolucionError) throw devolucionError
 
-      // Actualizar stock del producto (devolver al inventario)
-      const nuevoStock = producto.stock_normal + parseInt(formData.cantidad_pares)
-      const { error: stockError } = await supabase
-        .from('productos')
-        .update({ stock_normal: nuevoStock })
-        .eq('id', producto.id)
+      // Actualizar stock del producto usando función RPC (bypass RLS)
+      const { error: stockError } = await supabase.rpc('incrementar_stock_producto', {
+        p_producto_id: producto.id,
+        p_cantidad: parseInt(formData.cantidad_pares)
+      })
 
       if (stockError) {
         console.error('Error actualizando stock:', stockError)
+        alert('Advertencia: La devolución se registró pero hubo un error actualizando el inventario.')
       }
 
       alert('✅ Devolución registrada correctamente!')
